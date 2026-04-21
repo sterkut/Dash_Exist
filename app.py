@@ -20,21 +20,11 @@ st.markdown("""
 # --- 2. ЗАВАНТАЖЕННЯ ДАНИХ ---
 @st.cache_data
 def load_data():
-    df = pd.read_excel("REPORT_EXIST_CEO.xlsx")
+    try:
+        df = pd.read_excel("REPORT_EXIST_CEO.xlsx")
+    except Exception as e:
+        return pd.DataFrame() # Повертаємо порожній датафрейм, якщо файлу немає
     
-    rename_dict = {}
-    for col in df.columns:
-        if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
-        if "Готовність" in col: rename_dict[col] = "Готовність"
-        if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
-        if "Привітність" in col: rename_dict[col] = "Привітність"
-        
-    df.rename(columns=rename_dict, inplace=True)
-    return df
-
-df = load_data()
-    
-    # Автоматично виправляємо назви колонок, якщо Excel їх трохи обрізав
     rename_dict = {}
     for col in df.columns:
         if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
@@ -48,7 +38,7 @@ df = load_data()
 df = load_data()
 
 if df.empty:
-    st.error("❌ У папці 'D:\\виход' немає жодного Excel файлу.")
+    st.error("❌ Помилка: Файл 'REPORT_EXIST_CEO.xlsx' не знайдено або він порожній.")
     st.stop()
 
 # --- 3. САЙДБАР: ФІЛЬТРИ ТА ГРОШІ ---
@@ -159,7 +149,6 @@ with tab_coach:
     skill_cols = ['Привітання', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Привітність', 'Активне_Слухання', 'Впевненість_Мовлення', 'Емпатія']
     existing_skills = [c for c in skill_cols if c in df_filtered.columns]
     
-    # ФІКС ПОМИЛКИ: використовуємо однорідний словник для агрегації
     agg_dict = {"Дзвінків": pd.NamedAgg(column="Дзвінок", aggfunc="count")}
     if "Hard_Бал" in df_filtered.columns: agg_dict["Середній_Hard"] = pd.NamedAgg(column="Hard_Бал", aggfunc="mean")
     if "Soft_Бал" in df_filtered.columns: agg_dict["Середній_Soft"] = pd.NamedAgg(column="Soft_Бал", aggfunc="mean")
@@ -218,7 +207,6 @@ with tab_call:
         if selected_file:
             row = df_filtered[df_filtered['Дзвінок'] == selected_file].iloc[0]
 
-            # 1. Математика оцінки (Hard Skills)
             max_hard = 12 
             score_10 = round((row.get('Hard_Бал', 0) / max_hard) * 10, 1) if max_hard else 0
 
@@ -232,14 +220,12 @@ with tab_call:
                 score_color = "#DC2626" 
                 score_text = "Погано"
 
-            # 2. Логіка результату
             is_success = row.get("Дотиснув_Угоду") == "Так"
             result_bg = "#F0FDF4" if is_success else "#FEF2F2"
             result_border = "#BBF7D0" if is_success else "#FECACA"
             result_title = "Угода успішна / Дотиснуто" if is_success else "Угоду втрачено"
             result_desc = "Менеджер довів клієнта до цільової дії." if is_success else f"Причина втрати ліда: <b>{row.get('ROOT_PROBLEM', 'Невідомо')}</b>."
 
-            # 3. Логіка "Тону розмови" (Soft Skills)
             soft_score = row.get('Soft_Бал', None)
             tone_html = ""
             
@@ -264,7 +250,6 @@ with tab_call:
 </div>
 """
 
-            # 4. Верстка карток (УСІ ТЕГИ ПРИТИСНУТІ ДО ЛІВОГО КРАЮ)
             st.markdown(f"""
 <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
 <div style="display: flex; align-items: center; gap: 24px;">

@@ -20,10 +20,8 @@ st.markdown("""
 # --- 2. ЗАВАНТАЖЕННЯ ДАНИХ ---
 @st.cache_data
 def load_data():
-    # Читаємо файл, який лежить поруч на GitHub
     df = pd.read_excel("REPORT_EXIST_CEO.xlsx")
     
-    # Автоматично виправляємо назви колонок, якщо Excel їх трохи обрізав
     rename_dict = {}
     for col in df.columns:
         if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"

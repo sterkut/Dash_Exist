@@ -17,21 +17,24 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. РОЗУМНЕ ЗАВАНТАЖЕННЯ ДАНИХ ---
+# --- 2. ЗАВАНТАЖЕННЯ ДАНИХ ---
 @st.cache_data
 def load_data():
-    def load_data():
-    # Просто назва файлу, який лежить поруч
-    df = pd.read_excel("REPORT_EXIST_CEO.xlsx") 
-    # ... далі твій код виправлення колонок
-    if not os.path.exists(dir_path): return pd.DataFrame()
+    # Читаємо файл, який лежить поруч на GitHub
+    df = pd.read_excel("REPORT_EXIST_CEO.xlsx")
     
-    # Шукаємо всі Excel файли в папці і беремо найновіший
-    files = [f for f in os.listdir(dir_path) if f.endswith('.xlsx') and not f.startswith('~')]
-    if not files: return pd.DataFrame()
-    
-    latest_file = max([os.path.join(dir_path, f) for f in files], key=os.path.getctime)
-    df = pd.read_excel(latest_file)
+    # Автоматично виправляємо назви колонок, якщо Excel їх трохи обрізав
+    rename_dict = {}
+    for col in df.columns:
+        if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
+        if "Готовність" in col: rename_dict[col] = "Готовність"
+        if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
+        if "Привітність" in col: rename_dict[col] = "Привітність"
+        
+    df.rename(columns=rename_dict, inplace=True)
+    return df
+
+df = load_data()
     
     # Автоматично виправляємо назви колонок, якщо Excel їх трохи обрізав
     rename_dict = {}

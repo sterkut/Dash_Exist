@@ -1,7 +1,30 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import os
+
+# --- ПЕРЕВІРКА ПАРОЛЯ ---
+def check_password():
+    """Повертає True, якщо введено правильний пароль."""
+    def password_entered():
+        # ТУТ ВСТАВ СВІЙ ПАРОЛЬ
+        if st.session_state["password"] == "EXIST_2026": 
+            st.session_state["password_correct"] = True
+            del st.session_state["password"] # видаляємо пароль з пам'яті для безпеки
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # Показуємо вікно введення пароля
+        st.title("🔐 Доступ обмежено")
+        st.text_input("Введіть пароль для перегляду аналітики:", type="password", on_change=password_entered, key="password")
+        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+            st.error("😕 Невірний пароль. Спробуйте ще раз.")
+        return False
+    return True
+
+# Якщо пароль невірний — зупиняємо виконання коду тут
+if not check_password():
+    st.stop()
 
 # --- 1. НАЛАШТУВАННЯ СТОРІНКИ ---
 st.set_page_config(page_title="EXIST.UA | Revenue Recovery", layout="wide", initial_sidebar_state="expanded")

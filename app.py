@@ -22,7 +22,6 @@ st.markdown("""
 def load_data():
     df = pd.DataFrame()
     
-    # СПРОБА 1: Google Sheets
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -31,7 +30,6 @@ def load_data():
     except Exception:
         pass
     
-    # СПРОБА 2: Локальний диск D (Для ПК)
     if df.empty:
         try:
             df = pd.read_excel(r"D:\виход\REPORT_EXIST_CEO.xlsx")
@@ -87,21 +85,18 @@ df_filtered = df[
     (df["ROOT_PROBLEM"].isin(selected_roots))
 ].copy()
 
-# --- 4. МАТЕМАТИКА ВТРАТ (НОВА ЛОГІКА) ---
+# --- 4. МАТЕМАТИКА ВТРАТ ---
 intent_weights = {"High": 1.0, "Medium": 0.5, "Low": 0.0}
 df_filtered['Потенціал_грн'] = df_filtered['Готовність'].map(intent_weights).fillna(0) * avg_check
 
-# Розрахунок втрат основних угод (якщо ROOT_PROBLEM != 'Немає')
 df_filtered['Втрачено_Головна'] = df_filtered.apply(
     lambda x: x['Потенціал_грн'] if x['ROOT_PROBLEM'] != 'Немає' else 0, axis=1
 )
 
-# Розрахунок втрат крос-селу (ТІЛЬКИ якщо угода успішна, але спроби не було)
 df_filtered['Втрачено_Крос'] = df_filtered.apply(
     lambda x: (avg_cross_check * (cross_conv/100)) if (x['ROOT_PROBLEM'] == 'Немає' and x['Спроба_Крос_Селу'] == 'Ні') else 0, axis=1
 )
 
-# Загальна сума для графіків
 df_filtered['Втрачено_грн'] = df_filtered['Втрачено_Головна'] + df_filtered['Втрачено_Крос']
 
 # --- 5. ЗАГОЛОВОК І ВКЛАДКИ ---
@@ -118,15 +113,16 @@ with tab_ceo:
     total_lost_cross = df_filtered["Втрачено_Крос"].sum()
     total_lost_all = df_filtered["Втрачено_грн"].sum()
     
-    # % без крос-селу серед усіх успішних угод
-    success_deals = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає']
-    missed_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Ні'])
-    missed_cross_rate = (missed_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
+    # Розрахунок % втрат ГАРЯЧИХ (High + Medium)
+    hot_med_deals = df_filtered[df_filtered['Готовність'].isin(['High', 'Medium'])]
+    hot_med_total = len(hot_med_deals)
+    hot_med_lost = len(hot_med_deals[hot_med_deals['ROOT_PROBLEM'] != 'Немає'])
+    hot_loss_rate = (hot_med_lost / hot_med_total * 100) if hot_med_total > 0 else 0
 
     col1.metric("ЗАГАЛЬНІ ВТРАТИ", f"{total_lost_all:,.0f} ₴")
     col2.metric("Втрати (Основні)", f"{total_lost_main:,.0f} ₴")
     col3.metric("Втрати (Крос-сел)", f"{total_lost_cross:,.0f} ₴")
-    col4.metric("% без CROSS-SELL", f"{missed_cross_rate:.0f}%")
+    col4.metric("% втрат ГАРЯЧИХ", f"{hot_loss_rate:.0f}%")
     
     st.markdown("<hr>", unsafe_allow_html=True)
     
@@ -134,9 +130,8 @@ with tab_ceo:
     
     with row1_col1:
         st.markdown("### 🎯 Причини втрат (включаючи недоотриманий крос-сел)")
-        # Створюємо копію для візуалізації причин
         reasons_data = df_filtered[df_filtered['Втрачено_грн'] > 0].groupby('ROOT_PROBLEM')['Втрачено_грн'].sum().reset_index()
-        # Додаємо віртуальну причину "Немає крос-селу" для наочності, якщо вона є
+        
         if total_lost_cross > 0:
             reasons_data.loc[reasons_data['ROOT_PROBLEM'] == 'Немає', 'ROOT_PROBLEM'] = 'Відсутність Крос-селу'
             
@@ -162,7 +157,6 @@ with tab_ceo:
     all_lost_details = df_filtered[df_filtered['Втрачено_грн'] > 0].copy()
     
     if not all_lost_details.empty:
-        # Для таблиці зробимо зрозумілішим опис
         all_lost_details['Деталі_втрати'] = all_lost_details.apply(
             lambda x: "Не запропоновано крос-сел" if (x['ROOT_PROBLEM'] == 'Немає' and x['Втрачено_Крос'] > 0) else x.get('Інсайт_для_CEO', ''), axis=1
         )

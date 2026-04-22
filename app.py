@@ -26,7 +26,7 @@ def load_data():
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet="EXIST_DATA_BASE")
+        df = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=0#gid=0")
     except Exception:
         pass
     

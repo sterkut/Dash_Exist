@@ -22,41 +22,31 @@ st.markdown("""
 def load_data():
     df = pd.DataFrame()
     
-    # СПРОБА 1: Google Sheets
+    # СПРОБА 1: Google Sheets (чисте посилання без хвостика)
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
-        # Використовуй ТУТ своє посилання на таблицю, яке ти вставив раніше
-        url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=0#gid=0"
+        url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit"
         df = conn.read(spreadsheet=url)
-    except Exception as e:
-        # Виводимо технічну помилку на екран для діагностики
-        st.warning(f"⚠️ Помилка підключення до Google Sheets: {e}")
+    except Exception:
+        pass
     
-    # Якщо Гугл не спрацював, шукаємо локально (про всяк випадок)
+    # СПРОБА 2: Локальний диск D (Для ПК)
     if df.empty:
-        paths = [r"D:\виход\REPORT_EXIST_CEO.xlsx", "REPORT_EXIST_CEO.xlsx"]
-        for p in paths:
-            if os.path.exists(p):
-                try:
-                    df = pd.read_excel(p)
-                    break
-                except:
-                    continue
+        try:
+            df = pd.read_excel(r"D:\виход\REPORT_EXIST_CEO.xlsx")
+        except Exception:
+            pass
             
-    if not df.empty:
-        rename_dict = {}
-        for col in df.columns:
-            if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
-            if "Готовність" in col: rename_dict[col] = "Готовність"
-            if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
-            if "Дотиснув" in col: rename_dict[col] = "Зафіксував_Наступний_Крок"
-        df.rename(columns=rename_dict, inplace=True)
-        
-    return df
+    # СПРОБА 3: Локальний файл поруч зі скриптом
+    if df.empty:
+        try:
+            df = pd.read_excel("REPORT_EXIST_CEO.xlsx")
+        except Exception:
+            pass
 
     if not df.empty:
-        # Стандартизація колонок, якщо Excel або Google їх десь змінив
+        # Стандартизація колонок
         rename_dict = {}
         for col in df.columns:
             if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
@@ -65,27 +55,25 @@ def load_data():
             if "Дотиснув" in col: rename_dict[col] = "Зафіксував_Наступний_Крок"
             
         df.rename(columns=rename_dict, inplace=True)
+        
     return df
 
 df = load_data()
 
 if df.empty:
-    st.error("❌ Не вдалося знайти дані. Перевірте Google Sheets або наявність файлу 'REPORT_EXIST_CEO.xlsx'.")
+    st.error("❌ Не вдалося знайти дані. Перевірте підключення до Google Sheets або наявність локального файлу.")
     st.stop()
 
 # --- 3. САЙДБАР: ФІЛЬТРИ ТА ГРОШІ ---
 with st.sidebar:
     st.markdown("### 🎛 Фільтри")
     
-    # Фільтр Менеджерів
     managers_list = sorted(df["Менеджер"].dropna().unique()) if "Менеджер" in df.columns else []
     selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list)
     
-    # Фільтр Готовності
     intents_list = sorted(df["Готовність"].dropna().unique()) if "Готовність" in df.columns else []
     selected_intents = st.multiselect("🎯 Готовність до покупки", intents_list, default=intents_list)
 
-    # Фільтр ROOT PROBLEM (Нова хотілка)
     root_list = sorted(df["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df.columns else []
     selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list)
 
@@ -162,12 +150,10 @@ with tab_ceo:
     with row1_col2:
         st.markdown("### 🚨 Хто зливає бюджет")
         manager_loss = df_filtered.groupby("Менеджер")['Втрачено_грн'].sum().reset_index().sort_values("Втрачено_грн", ascending=False)
-        st.dataframe(
-            manager_loss.style.background_gradient(cmap='Reds', subset=['Втрачено_грн']),
-            use_container_width=True, hide_index=True
-        )
+        styled_loss = manager_loss.style.format({'Втрачено_грн': '{:,.0f}'}) \
+            .background_gradient(cmap='Reds', subset=['Втрачено_грн'])
+        st.dataframe(styled_loss, use_container_width=True, hide_index=True)
 
-    # Оновлена деталізація: показуємо і High, і Medium
     st.markdown("<br>### 🔎 Деталі всіх втрачених угод (High та Medium)", unsafe_allow_html=True)
     all_lost_details = df_filtered[df_filtered['Втрачено_грн'] > 0]
     
@@ -195,20 +181,18 @@ with tab_coach:
         
     coach_stats = df_filtered.groupby("Менеджер").agg(**agg_dict).reset_index()
     
-    cols_to_round = coach_stats.columns.drop(['Менеджер', 'Дзвінків'])
-    coach_stats[cols_to_round] = coach_stats[cols_to_round].round(1)
-    
     col_c1, col_c2 = st.columns([2, 1.2])
     
     with col_c1:
         gradient_cols_main = [c for c in ['Середній_Hard', 'Середній_Soft'] if c in coach_stats.columns]
         gradient_cols_skills = [c for c in existing_skills if c in coach_stats.columns]
         
-        st.dataframe(
-            coach_stats.style.background_gradient(cmap='Greens', subset=gradient_cols_main)
-                         .background_gradient(cmap='Blues', subset=gradient_cols_skills),
-            use_container_width=True, hide_index=True
-        )
+        # Відображення 1 знак після коми, фіксовані межі від 0 до 2 для навичок
+        styled_coach = coach_stats.style.format(precision=1) \
+            .background_gradient(cmap='Greens', subset=gradient_cols_main) \
+            .background_gradient(cmap='Blues', subset=gradient_cols_skills, vmin=0, vmax=2)
+            
+        st.dataframe(styled_coach, use_container_width=True, hide_index=True)
         
     with col_c2:
         st.markdown("**Рекомендації ШІ для вибраних менеджерів:**")
@@ -226,10 +210,12 @@ with tab_coach:
                     
     st.markdown("<br>### Матриця компетенцій (Raw Data)", unsafe_allow_html=True)
     raw_cols = ['Менеджер', 'Дзвінок'] + existing_skills
-    st.dataframe(
-        df_filtered[raw_cols].style.background_gradient(cmap='Blues', subset=existing_skills),
-        use_container_width=True, hide_index=True
-    )
+    
+    # Формат без копійок (цілі числа), фіксований градієнт 0-2
+    styled_raw = df_filtered[raw_cols].style.format(precision=0) \
+        .background_gradient(cmap='Blues', subset=existing_skills, vmin=0, vmax=2)
+        
+    st.dataframe(styled_raw, use_container_width=True, hide_index=True)
 
 # ==========================================
 # ПАНЕЛЬ 3: КАРТКА КОНКРЕТНОГО ДЗВІНКА
@@ -246,15 +232,14 @@ with tab_call:
             # 1. МАТЕМАТИКА БАЛІВ (12 балів)
             score_12 = int(row.get('Hard_Бал', 0))
             
-            # Логіка кольорів кільця
             if score_12 >= 10:
-                score_color = "#16A34A" # Зелений
+                score_color = "#16A34A" 
                 score_text = "Відмінно"
             elif score_12 >= 6:
-                score_color = "#F59E0B" # Жовто-помаранчевий (як на скріні)
+                score_color = "#F59E0B" 
                 score_text = "Задовільно"
             else:
-                score_color = "#DC2626" # Червоний
+                score_color = "#DC2626" 
                 score_text = "Погано"
 
             # 2. РАХУЄМО ЛАЙКИ / ДИЗЛАЙКИ (Хард-скіли)
@@ -267,45 +252,42 @@ with tab_call:
                 elif val == 1: norms += 1
                 else: dislikes += 1
 
-            # Градус для кругової діаграми (CSS)
             deg = (score_12 / 12) * 360
 
-            # 3. ВЕРСТКА ВЕРХНЬОГО БЛОКУ (КІЛЬЦЕ + БЛОКИ ЕМОДЗІ)
+            # 3. ВЕРСТКА ВЕРХНЬОГО БЛОКУ (КІЛЬЦЕ + БЛОКИ ЕМОДЗІ) - Притиснуто до лівого краю!
             st.markdown(f"""
-            <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 40px; flex-wrap: wrap;">
-                
-                <div style="text-align: center; min-width: 130px;">
-                    <div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin: 0 auto 12px auto;">
-                        <div style="width: 95px; height: 95px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            <span style="font-size: 32px; font-weight: 800; color: #0F172A; line-height: 1;">{score_12}</span>
-                            <span style="font-size: 13px; color: #64748B; font-weight: 600;">з 12</span>
-                        </div>
-                    </div>
-                    <span style="background: {score_color}15; color: {score_color}; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;">{score_text}</span>
-                </div>
-
-                <div style="flex: 1;">
-                    <h3 style="margin: 0 0 15px 0; color: #0F172A; font-size: 18px;">📊 Аналіз навичок продажу</h3>
-                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                        <div style="flex: 1; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
-                            <div style="font-size: 24px; margin-bottom: 5px;">👍</div>
-                            <div style="font-size: 20px; font-weight: 800; color: #166534;">{likes}</div>
-                            <div style="font-size: 13px; color: #15803D; font-weight: 600;">Сильні сторони</div>
-                        </div>
-                        <div style="flex: 1; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
-                            <div style="font-size: 24px; margin-bottom: 5px;">😐</div>
-                            <div style="font-size: 20px; font-weight: 800; color: #B45309;">{norms}</div>
-                            <div style="font-size: 13px; color: #B45309; font-weight: 600;">Зона уваги</div>
-                        </div>
-                        <div style="flex: 1; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
-                            <div style="font-size: 24px; margin-bottom: 5px;">🚩</div>
-                            <div style="font-size: 20px; font-weight: 800; color: #991B1B;">{dislikes}</div>
-                            <div style="font-size: 13px; color: #B91C1C; font-weight: 600;">Зони росту</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+<div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 40px; flex-wrap: wrap;">
+<div style="text-align: center; min-width: 130px;">
+<div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin: 0 auto 12px auto;">
+<div style="width: 95px; height: 95px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+<span style="font-size: 32px; font-weight: 800; color: #0F172A; line-height: 1;">{score_12}</span>
+<span style="font-size: 13px; color: #64748B; font-weight: 600;">з 12</span>
+</div>
+</div>
+<span style="background: {score_color}15; color: {score_color}; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;">{score_text}</span>
+</div>
+<div style="flex: 1;">
+<h3 style="margin: 0 0 15px 0; color: #0F172A; font-size: 18px;">📊 Аналіз навичок продажу</h3>
+<div style="display: flex; gap: 15px; flex-wrap: wrap;">
+<div style="flex: 1; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
+<div style="font-size: 24px; margin-bottom: 5px;">👍</div>
+<div style="font-size: 20px; font-weight: 800; color: #166534;">{likes}</div>
+<div style="font-size: 13px; color: #15803D; font-weight: 600;">Сильні сторони</div>
+</div>
+<div style="flex: 1; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
+<div style="font-size: 24px; margin-bottom: 5px;">😐</div>
+<div style="font-size: 20px; font-weight: 800; color: #B45309;">{norms}</div>
+<div style="font-size: 13px; color: #B45309; font-weight: 600;">Зона уваги</div>
+</div>
+<div style="flex: 1; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
+<div style="font-size: 24px; margin-bottom: 5px;">🚩</div>
+<div style="font-size: 20px; font-weight: 800; color: #991B1B;">{dislikes}</div>
+<div style="font-size: 13px; color: #B91C1C; font-weight: 600;">Зони росту</div>
+</div>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
             # 4. РЕЗУЛЬТАТ РОЗМОВИ (Успіх / Втрата)
             is_success = row.get("ROOT_PROBLEM", "Немає") == "Немає"
@@ -315,46 +297,46 @@ with tab_call:
             result_desc = "Менеджер довів клієнта до цільової дії." if is_success else f"Причина втрати ліда: <b>{row.get('ROOT_PROBLEM', 'Невідомо')}</b>."
 
             st.markdown(f"""
-            <div style="background: {result_bg}; border: 1px solid {result_border}; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                <div style="display: flex; gap: 15px; align-items: center;">
-                    <div style="font-size: 24px;">{'✅' if is_success else '❌'}</div>
-                    <div>
-                        <h4 style="margin: 0 0 4px 0; color: #111827; font-size: 16px;">Результат розмови: {result_title}</h4>
-                        <p style="margin: 0; color: #374151; font-size: 14px;">{result_desc} <br> Готовність: <b>{row.get('Готовність', 'N/A')}</b> | Зафіксовано крок: <b>{row.get('Зафіксував_Наступний_Крок', 'Ні')}</b></p>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+<div style="background: {result_bg}; border: 1px solid {result_border}; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+<div style="display: flex; gap: 15px; align-items: center;">
+<div style="font-size: 24px;">{'✅' if is_success else '❌'}</div>
+<div>
+<h4 style="margin: 0 0 4px 0; color: #111827; font-size: 16px;">Результат розмови: {result_title}</h4>
+<p style="margin: 0; color: #374151; font-size: 14px;">{result_desc} <br> Готовність: <b>{row.get('Готовність', 'N/A')}</b> | Зафіксовано крок: <b>{row.get('Зафіксував_Наступний_Крок', 'Ні')}</b></p>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
-            # 5. ТОН РОЗМОВИ (Беремо з колонки нейронки)
+            # 5. ТОН РОЗМОВИ
             tone_text = row.get("Тон_Розмови", "Тон розмови не проаналізовано.")
             st.markdown(f"""
-            <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
-                    <div style="font-size: 20px;">🎙️</div>
-                    <h4 style="margin: 0; color: #0F172A; font-size: 16px;">Тон розмови</h4>
-                </div>
-                <p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.5; padding-left: 30px;">{tone_text}</p>
-            </div>
-            """, unsafe_allow_html=True)
+<div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+<div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+<div style="font-size: 20px;">🎙️</div>
+<h4 style="margin: 0; color: #0F172A; font-size: 16px;">Тон розмови</h4>
+</div>
+<p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.5; padding-left: 30px;">{tone_text}</p>
+</div>
+""", unsafe_allow_html=True)
 
-            # 6. ІНФО ПРО МЕНЕДЖЕРА
+            # 6. ІНФО ПРО МЕНЕДЖЕРА ТА ІНСАЙТ
             st.markdown(f"""
-            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-                <div style="flex: 1; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; background: #F8FAFC;">
-                    <p style="margin: 0 0 4px 0; color: #64748B; font-size: 12px; text-transform: uppercase;">Менеджер</p>
-                    <h4 style="margin: 0; color: #0F172A; font-size: 16px;">👤 {row.get('Менеджер', 'N/A')}</h4>
-                </div>
-                <div style="flex: 2; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; background: #F8FAFC;">
-                    <p style="margin: 0 0 4px 0; color: #64748B; font-size: 12px; text-transform: uppercase;">Файл дзвінка (Ідентифікатор)</p>
-                    <h4 style="margin: 0; color: #0F172A; font-size: 14px; word-break: break-all;">📄 {row.get('Дзвінок', 'N/A')}</h4>
-                </div>
-            </div>
+<div style="display: flex; gap: 20px; margin-bottom: 20px;">
+<div style="flex: 1; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; background: #F8FAFC;">
+<p style="margin: 0 0 4px 0; color: #64748B; font-size: 12px; text-transform: uppercase;">Менеджер</p>
+<h4 style="margin: 0; color: #0F172A; font-size: 16px;">👤 {row.get('Менеджер', 'N/A')}</h4>
+</div>
+<div style="flex: 2; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; background: #F8FAFC;">
+<p style="margin: 0 0 4px 0; color: #64748B; font-size: 12px; text-transform: uppercase;">Файл дзвінка (Ідентифікатор)</p>
+<h4 style="margin: 0; color: #0F172A; font-size: 14px; word-break: break-all;">📄 {row.get('Дзвінок', 'N/A')}</h4>
+</div>
+</div>
 
-            <div style="background: #FFFBEB; border: 1px solid #FEF3C7; border-radius: 12px; padding: 20px;">
-                <h4 style="margin: 0 0 8px 0; color: #92400E; font-size: 16px;">💡 Аналітика для бізнесу (Інсайт)</h4>
-                <p style="margin: 0; color: #92400E; line-height: 1.5;">{row.get('Інсайт_для_CEO', 'Немає інсайтів')}</p>
-            </div>
-            """, unsafe_allow_html=True)
+<div style="background: #FFFBEB; border: 1px solid #FEF3C7; border-radius: 12px; padding: 20px;">
+<h4 style="margin: 0 0 8px 0; color: #92400E; font-size: 16px;">💡 Аналітика для бізнесу (Інсайт)</h4>
+<p style="margin: 0; color: #92400E; line-height: 1.5;">{row.get('Інсайт_для_CEO', 'Немає інсайтів')}</p>
+</div>
+""", unsafe_allow_html=True)
     else:
         st.info("Немає даних для відображення.")

@@ -27,7 +27,7 @@ def load_data():
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
         # Використовуй ТУТ своє посилання на таблицю, яке ти вставив раніше
-        url = "ВСТАВ_ТУТ_СВОЄ_ПОСИЛАННЯ_НА_ТАБЛИЦЮ"
+        url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=0#gid=0"
         df = conn.read(spreadsheet=url)
     except Exception as e:
         # Виводимо технічну помилку на екран для діагностики

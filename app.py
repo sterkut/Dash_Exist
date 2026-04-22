@@ -18,31 +18,42 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. РОЗУМНЕ ЗАВАНТАЖЕННЯ ДАНИХ (ГІТХАБ + ЛОКАЛЬНО) ---
-@st.cache_data(ttl=60) # Кешуємо на хвилину, щоб не грузити базу постійно
+@st.cache_data(ttl=60)
 def load_data():
     df = pd.DataFrame()
     
-    # СПРОБА 1: Google Sheets (Для GitHub)
+    # СПРОБА 1: Google Sheets
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=0#gid=0")
-    except Exception:
-        pass
+        # Використовуй ТУТ своє посилання на таблицю, яке ти вставив раніше
+        url = "ВСТАВ_ТУТ_СВОЄ_ПОСИЛАННЯ_НА_ТАБЛИЦЮ"
+        df = conn.read(spreadsheet=url)
+    except Exception as e:
+        # Виводимо технічну помилку на екран для діагностики
+        st.warning(f"⚠️ Помилка підключення до Google Sheets: {e}")
     
-    # СПРОБА 2: Локальний диск D (Для ПК)
+    # Якщо Гугл не спрацював, шукаємо локально (про всяк випадок)
     if df.empty:
-        try:
-            df = pd.read_excel(r"D:\виход\REPORT_EXIST_CEO.xlsx")
-        except Exception:
-            pass
+        paths = [r"D:\виход\REPORT_EXIST_CEO.xlsx", "REPORT_EXIST_CEO.xlsx"]
+        for p in paths:
+            if os.path.exists(p):
+                try:
+                    df = pd.read_excel(p)
+                    break
+                except:
+                    continue
             
-    # СПРОБА 3: Локальний файл поруч зі скриптом
-    if df.empty:
-        try:
-            df = pd.read_excel("REPORT_EXIST_CEO.xlsx")
-        except Exception:
-            pass
+    if not df.empty:
+        rename_dict = {}
+        for col in df.columns:
+            if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
+            if "Готовність" in col: rename_dict[col] = "Готовність"
+            if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
+            if "Дотиснув" in col: rename_dict[col] = "Зафіксував_Наступний_Крок"
+        df.rename(columns=rename_dict, inplace=True)
+        
+    return df
 
     if not df.empty:
         # Стандартизація колонок, якщо Excel або Google їх десь змінив

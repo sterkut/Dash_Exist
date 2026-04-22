@@ -17,12 +17,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. РОЗУМНЕ ЗАВАНТАЖЕННЯ ДАНИХ (ГІТХАБ + ЛОКАЛЬНО) ---
+# --- 2. РОЗУМНЕ ЗАВАНТАЖЕННЯ ДАНИХ ---
 @st.cache_data(ttl=60)
 def load_data():
     df = pd.DataFrame()
     
-    # СПРОБА 1: Google Sheets (чисте посилання без хвостика)
+    # СПРОБА 1: Google Sheets
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -37,23 +37,14 @@ def load_data():
             df = pd.read_excel(r"D:\виход\REPORT_EXIST_CEO.xlsx")
         except Exception:
             pass
-            
-    # СПРОБА 3: Локальний файл поруч зі скриптом
-    if df.empty:
-        try:
-            df = pd.read_excel("REPORT_EXIST_CEO.xlsx")
-        except Exception:
-            pass
 
     if not df.empty:
-        # Стандартизація колонок
         rename_dict = {}
         for col in df.columns:
             if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
             if "Готовність" in col: rename_dict[col] = "Готовність"
             if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
             if "Дотиснув" in col: rename_dict[col] = "Зафіксував_Наступний_Крок"
-            
         df.rename(columns=rename_dict, inplace=True)
         
     return df
@@ -61,7 +52,7 @@ def load_data():
 df = load_data()
 
 if df.empty:
-    st.error("❌ Не вдалося знайти дані. Перевірте підключення до Google Sheets або наявність локального файлу.")
+    st.error("❌ Не вдалося знайти дані. Перевірте Google Sheets або наявність локального файлу.")
     st.stop()
 
 # --- 3. САЙДБАР: ФІЛЬТРИ ТА ГРОШІ ---
@@ -81,63 +72,76 @@ with st.sidebar:
     st.markdown("### 💰 Фінансові параметри")
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
     
+    st.markdown("#### Параметри Крос-селу")
+    avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=100, step=10)
+    cross_conv = st.slider("Конверсія у доп. продаж (%)", 0, 100, 10)
+    
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### Вага потенціалу:")
     st.write("🔥 High: 100%")
     st.write("⚡ Medium: 50%")
-    st.write("*(Low готовність не враховується у втратах)*")
 
-# Застосовуємо всі фільтри
 df_filtered = df[
     (df["Менеджер"].isin(selected_managers)) & 
     (df["Готовність"].isin(selected_intents)) &
     (df["ROOT_PROBLEM"].isin(selected_roots))
 ].copy()
 
-if df_filtered.empty:
-    st.warning("⚠️ Немає даних за вибраними фільтрами.")
-    st.stop()
-
-# --- 4. МАТЕМАТИКА ВТРАТ ---
+# --- 4. МАТЕМАТИКА ВТРАТ (НОВА ЛОГІКА) ---
 intent_weights = {"High": 1.0, "Medium": 0.5, "Low": 0.0}
 df_filtered['Потенціал_грн'] = df_filtered['Готовність'].map(intent_weights).fillna(0) * avg_check
-df_filtered['Втрачено_грн'] = df_filtered.apply(lambda x: x['Потенціал_грн'] if x['ROOT_PROBLEM'] != 'Немає' else 0, axis=1)
+
+# Розрахунок втрат основних угод (якщо ROOT_PROBLEM != 'Немає')
+df_filtered['Втрачено_Головна'] = df_filtered.apply(
+    lambda x: x['Потенціал_грн'] if x['ROOT_PROBLEM'] != 'Немає' else 0, axis=1
+)
+
+# Розрахунок втрат крос-селу (ТІЛЬКИ якщо угода успішна, але спроби не було)
+df_filtered['Втрачено_Крос'] = df_filtered.apply(
+    lambda x: (avg_cross_check * (cross_conv/100)) if (x['ROOT_PROBLEM'] == 'Немає' and x['Спроба_Крос_Селу'] == 'Ні') else 0, axis=1
+)
+
+# Загальна сума для графіків
+df_filtered['Втрачено_грн'] = df_filtered['Втрачено_Головна'] + df_filtered['Втрачено_Крос']
 
 # --- 5. ЗАГОЛОВОК І ВКЛАДКИ ---
 st.title("Аналітика Відділу Продажів (CEO View)")
 tab_ceo, tab_coach, tab_call = st.tabs(["💰 CEO: Втрачений прибуток", "🎓 Навчання: Розбір навичок", "🎧 Картка дзвінка"])
 
 # ==========================================
-# ПАНЕЛЬ 1: CEO (Гроші, Воронка, Втрати)
+# ПАНЕЛЬ 1: CEO
 # ==========================================
 with tab_ceo:
     col1, col2, col3, col4 = st.columns(4)
     
-    total_calls = len(df_filtered)
-    total_lost_potential = df_filtered["Втрачено_грн"].sum()
+    total_lost_main = df_filtered["Втрачено_Головна"].sum()
+    total_lost_cross = df_filtered["Втрачено_Крос"].sum()
+    total_lost_all = df_filtered["Втрачено_грн"].sum()
     
-    hot_total = len(df_filtered[df_filtered['Готовність'] == 'High'])
-    hot_lost = len(df_filtered[(df_filtered['Готовність'] == 'High') & (df_filtered['ROOT_PROBLEM'] != 'Немає')])
-    hot_loss_rate = (hot_lost / hot_total * 100) if hot_total > 0 else 0
+    # % без крос-селу серед усіх успішних угод
+    success_deals = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає']
+    missed_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Ні'])
+    missed_cross_rate = (missed_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
 
-    no_closing_count = len(df_filtered[df_filtered.get("Зафіксував_Наступний_Крок", "Ні") == "Ні"])
-    no_closing_rate = (no_closing_count / total_calls * 100) if total_calls > 0 else 0
-
-    no_cross_count = len(df_filtered[df_filtered.get("Спроба_Крос_Селу", "Ні") == "Ні"])
-    no_cross_rate = (no_cross_count / total_calls * 100) if total_calls > 0 else 0
-
-    col1.metric("Втрачено (грн)", f"{total_lost_potential:,.0f} ₴")
-    col2.metric("% втрат ГАРЯЧИХ", f"{hot_loss_rate:.0f}%")
-    col3.metric("% без ЗАКРИТТЯ", f"{no_closing_rate:.0f}%")
-    col4.metric("% без CROSS-SELL", f"{no_cross_rate:.0f}%")
+    col1.metric("ЗАГАЛЬНІ ВТРАТИ", f"{total_lost_all:,.0f} ₴")
+    col2.metric("Втрати (Основні)", f"{total_lost_main:,.0f} ₴")
+    col3.metric("Втрати (Крос-сел)", f"{total_lost_cross:,.0f} ₴")
+    col4.metric("% без CROSS-SELL", f"{missed_cross_rate:.0f}%")
     
     st.markdown("<hr>", unsafe_allow_html=True)
     
     row1_col1, row1_col2 = st.columns([1.2, 1])
     
     with row1_col1:
-        st.markdown("### 🎯 ТОП-3 причини втрат (в грошах)")
-        reasons_data = df_filtered[df_filtered['ROOT_PROBLEM'] != 'Немає'].groupby('ROOT_PROBLEM')['Втрачено_грн'].sum().reset_index().sort_values(by='Втрачено_грн', ascending=False).head(3)
+        st.markdown("### 🎯 Причини втрат (включаючи недоотриманий крос-сел)")
+        # Створюємо копію для візуалізації причин
+        reasons_data = df_filtered[df_filtered['Втрачено_грн'] > 0].groupby('ROOT_PROBLEM')['Втрачено_грн'].sum().reset_index()
+        # Додаємо віртуальну причину "Немає крос-селу" для наочності, якщо вона є
+        if total_lost_cross > 0:
+            reasons_data.loc[reasons_data['ROOT_PROBLEM'] == 'Немає', 'ROOT_PROBLEM'] = 'Відсутність Крос-селу'
+            
+        reasons_data = reasons_data.sort_values(by='Втрачено_грн', ascending=False).head(5)
+        
         if not reasons_data.empty:
             fig_reasons = px.bar(reasons_data, x='Втрачено_грн', y='ROOT_PROBLEM', orientation='h', 
                                  color='Втрачено_грн', color_continuous_scale='Reds',
@@ -148,20 +152,24 @@ with tab_ceo:
             st.success("Втрат немає!")
 
     with row1_col2:
-        st.markdown("### 🚨 Хто зливає бюджет")
+        st.markdown("### 🚨 Рейтинг фінансових втрат")
         manager_loss = df_filtered.groupby("Менеджер")['Втрачено_грн'].sum().reset_index().sort_values("Втрачено_грн", ascending=False)
         styled_loss = manager_loss.style.format({'Втрачено_грн': '{:,.0f}'}) \
             .background_gradient(cmap='Reds', subset=['Втрачено_грн'])
         st.dataframe(styled_loss, use_container_width=True, hide_index=True)
 
-    st.markdown("<br>### 🔎 Деталі всіх втрачених угод (High та Medium)", unsafe_allow_html=True)
-    all_lost_details = df_filtered[df_filtered['Втрачено_грн'] > 0]
+    st.markdown("<br>### 🔎 Деталізація втраченого прибутку", unsafe_allow_html=True)
+    all_lost_details = df_filtered[df_filtered['Втрачено_грн'] > 0].copy()
     
     if not all_lost_details.empty:
-        cols_to_show = [c for c in ['Менеджер', 'Дзвінок', 'Готовність', 'ROOT_PROBLEM', 'Втрачено_грн', 'Інсайт_для_CEO'] if c in all_lost_details.columns]
+        # Для таблиці зробимо зрозумілішим опис
+        all_lost_details['Деталі_втрати'] = all_lost_details.apply(
+            lambda x: "Не запропоновано крос-сел" if (x['ROOT_PROBLEM'] == 'Немає' and x['Втрачено_Крос'] > 0) else x.get('Інсайт_для_CEO', ''), axis=1
+        )
+        cols_to_show = ['Менеджер', 'Дзвінок', 'Готовність', 'ROOT_PROBLEM', 'Втрачено_грн', 'Деталі_втрати']
         st.dataframe(all_lost_details[cols_to_show], use_container_width=True, hide_index=True)
     else:
-        st.success("Втрат не виявлено! Всі угоди успішні.")
+        st.success("Втрат не виявлено!")
 
 # ==========================================
 # ПАНЕЛЬ 2: MANAGER COACHING
@@ -187,7 +195,6 @@ with tab_coach:
         gradient_cols_main = [c for c in ['Середній_Hard', 'Середній_Soft'] if c in coach_stats.columns]
         gradient_cols_skills = [c for c in existing_skills if c in coach_stats.columns]
         
-        # Відображення 1 знак після коми, фіксовані межі від 0 до 2 для навичок
         styled_coach = coach_stats.style.format(precision=1) \
             .background_gradient(cmap='Greens', subset=gradient_cols_main) \
             .background_gradient(cmap='Blues', subset=gradient_cols_skills, vmin=0, vmax=2)
@@ -206,15 +213,12 @@ with tab_coach:
                             st.info(row['Порада_для_менеджера'])
                             st.write("---")
         else:
-            st.write("Поради не знайдені в таблиці.")
+            st.write("Поради не знайдені.")
                     
     st.markdown("<br>### Матриця компетенцій (Raw Data)", unsafe_allow_html=True)
     raw_cols = ['Менеджер', 'Дзвінок'] + existing_skills
-    
-    # Формат без копійок (цілі числа), фіксований градієнт 0-2
     styled_raw = df_filtered[raw_cols].style.format(precision=0) \
         .background_gradient(cmap='Blues', subset=existing_skills, vmin=0, vmax=2)
-        
     st.dataframe(styled_raw, use_container_width=True, hide_index=True)
 
 # ==========================================
@@ -229,23 +233,12 @@ with tab_call:
         if selected_file:
             row = df_filtered[df_filtered['Дзвінок'] == selected_file].iloc[0]
 
-            # 1. МАТЕМАТИКА БАЛІВ (12 балів)
             score_12 = int(row.get('Hard_Бал', 0))
-            
-            if score_12 >= 10:
-                score_color = "#16A34A" 
-                score_text = "Відмінно"
-            elif score_12 >= 6:
-                score_color = "#F59E0B" 
-                score_text = "Задовільно"
-            else:
-                score_color = "#DC2626" 
-                score_text = "Погано"
+            score_color = "#16A34A" if score_12 >= 10 else ("#F59E0B" if score_12 >= 6 else "#DC2626")
+            score_text = "Відмінно" if score_12 >= 10 else ("Задовільно" if score_12 >= 6 else "Погано")
 
-            # 2. РАХУЄМО ЛАЙКИ / ДИЗЛАЙКИ (Хард-скіли)
             hard_skill_keys = ['Привітання', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття']
             likes, norms, dislikes = 0, 0, 0
-            
             for key in hard_skill_keys:
                 val = row.get(key, 0)
                 if val == 2: likes += 1
@@ -254,7 +247,6 @@ with tab_call:
 
             deg = (score_12 / 12) * 360
 
-            # 3. ВЕРСТКА ВЕРХНЬОГО БЛОКУ (КІЛЬЦЕ + БЛОКИ ЕМОДЗІ) - Притиснуто до лівого краю!
             st.markdown(f"""
 <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 40px; flex-wrap: wrap;">
 <div style="text-align: center; min-width: 130px;">
@@ -289,7 +281,6 @@ with tab_call:
 </div>
 """, unsafe_allow_html=True)
 
-            # 4. РЕЗУЛЬТАТ РОЗМОВИ (Успіх / Втрата)
             is_success = row.get("ROOT_PROBLEM", "Немає") == "Немає"
             result_bg = "#F0FDF4" if is_success else "#FEF2F2"
             result_border = "#BBF7D0" if is_success else "#FECACA"
@@ -302,13 +293,12 @@ with tab_call:
 <div style="font-size: 24px;">{'✅' if is_success else '❌'}</div>
 <div>
 <h4 style="margin: 0 0 4px 0; color: #111827; font-size: 16px;">Результат розмови: {result_title}</h4>
-<p style="margin: 0; color: #374151; font-size: 14px;">{result_desc} <br> Готовність: <b>{row.get('Готовність', 'N/A')}</b> | Зафіксовано крок: <b>{row.get('Зафіксував_Наступний_Крок', 'Ні')}</b></p>
+<p style="margin: 0; color: #374151; font-size: 14px;">{result_desc} <br> Готовність: <b>{row.get('Готовність', 'N/A')}</b> | Зафіксовано крок: <b>{row.get('Зафіксував_Наступний_Крок', 'Ні')}</b> | Крос-сел: <b>{row.get('Спроба_Крос_Селу', 'Ні')}</b></p>
 </div>
 </div>
 </div>
 """, unsafe_allow_html=True)
 
-            # 5. ТОН РОЗМОВИ
             tone_text = row.get("Тон_Розмови", "Тон розмови не проаналізовано.")
             st.markdown(f"""
 <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
@@ -320,7 +310,6 @@ with tab_call:
 </div>
 """, unsafe_allow_html=True)
 
-            # 6. ІНФО ПРО МЕНЕДЖЕРА ТА ІНСАЙТ
             st.markdown(f"""
 <div style="display: flex; gap: 20px; margin-bottom: 20px;">
 <div style="flex: 1; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; background: #F8FAFC;">
@@ -339,4 +328,4 @@ with tab_call:
 </div>
 """, unsafe_allow_html=True)
     else:
-        st.info("Немає даних для відображення.")
+        st.info("Немає даних.")

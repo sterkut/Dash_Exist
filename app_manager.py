@@ -149,19 +149,41 @@ with tab_stats:
         </div>
     """, unsafe_allow_html=True)
 
+    # Базові розрахунки
     total_calls = len(my_df_filtered)
+    lost_main = my_df_filtered['Втрачено_Головна'].sum()
+    lost_cross = my_df_filtered['Втрачено_Крос'].sum()
+
+    # Розрахунок відсотків (по успішних угодах)
     success_deals = my_df_filtered[my_df_filtered['ROOT_PROBLEM'] == 'Немає']
     win_rate = (len(success_deals) / total_calls * 100) if total_calls > 0 else 0
     
-    missed_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Ні'])
-    missed_cross_rate = (missed_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
+    # Відсоток ЗРОБЛЕНИХ крос-селів
+    made_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Так'])
+    cross_rate = (made_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
     
-    avg_hard = my_df_filtered.get('Hard_Бал', pd.Series([0])).mean()
+    # Відсоток ЗРОБЛЕНИХ пропозицій Екосистеми
+    if 'Екосистема' in success_deals.columns:
+        eco_scores = pd.to_numeric(success_deals['Екосистема'], errors='coerce').fillna(0)
+        made_eco_count = len(success_deals[eco_scores > 0])
+    else:
+        made_eco_count = 0
+        
+    eco_rate = (made_eco_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
 
+    # --- ВЕРХНІЙ РЯДОК: АБСОЛЮТНІ ЦИФРИ ТА ГРОШІ ---
     m_col1, m_col2, m_col3 = st.columns(3)
-    m_col1.metric("📞 Проаналізовано дзвінків", f"{total_calls}")
-    m_col2.metric("🎯 Win Rate (Успішні угоди)", f"{win_rate:.0f}%")
-    m_col3.metric("🛒 Відсоток злитих крос-селів", f"{missed_cross_rate:.0f}%", help="Відсоток успішних угод, де ти не запропонував супутній товар")
+    m_col1.metric("📞 Всього дзвінків", f"{total_calls}")
+    m_col2.metric("💸 Недоотримано (Основа)", f"{lost_main:,.0f} ₴")
+    m_col3.metric("📦 Недоотримано (Крос-сел)", f"{lost_cross:,.0f} ₴")
+
+    st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
+
+    # --- НИЖНІЙ РЯДОК: ВІДСОТКИ ДОСЯГНЕНЬ ---
+    p_col1, p_col2, p_col3 = st.columns(3)
+    p_col1.metric("🛒 % Крос-селів", f"{cross_rate:.0f}%", help="Відсоток успішних угод, де ти запропонував супутній товар")
+    p_col2.metric("🌐 % Екосистеми", f"{eco_rate:.0f}%", help="Відсоток успішних угод, де ти розповів про додаткові сервіси")
+    p_col3.metric("🎯 % Успішних угод", f"{win_rate:.0f}%", help="Твій загальний Win Rate")
 
     st.markdown("<hr style='margin: 30px 0;'>", unsafe_allow_html=True)
     

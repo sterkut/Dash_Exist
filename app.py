@@ -107,7 +107,8 @@ tab_ceo, tab_coach, tab_call = st.tabs(["💰 CEO: Втрачений прибу
 # ПАНЕЛЬ 1: CEO
 # ==========================================
 with tab_ceo:
-    col1, col2, col3, col4 = st.columns(4)
+    # РОБИМО 5 КОЛОНОК ЗАМІСТЬ 4
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     total_lost_main = df_filtered["Втрачено_Головна"].sum()
     total_lost_cross = df_filtered["Втрачено_Крос"].sum()
@@ -119,10 +120,16 @@ with tab_ceo:
     hot_med_lost = len(hot_med_deals[hot_med_deals['ROOT_PROBLEM'] != 'Немає'])
     hot_loss_rate = (hot_med_lost / hot_med_total * 100) if hot_med_total > 0 else 0
 
+    # Розрахунок % без крос-селу (тільки серед УСПІШНИХ угод)
+    success_deals = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає']
+    missed_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Ні'])
+    missed_cross_rate = (missed_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
+
     col1.metric("ЗАГАЛЬНІ ВТРАТИ", f"{total_lost_all:,.0f} ₴")
     col2.metric("Втрати (Основні)", f"{total_lost_main:,.0f} ₴")
     col3.metric("Втрати (Крос-сел)", f"{total_lost_cross:,.0f} ₴")
     col4.metric("% втрат ГАРЯЧИХ", f"{hot_loss_rate:.0f}%")
+    col5.metric("% без CROSS-SELL", f"{missed_cross_rate:.0f}%")  # ПОВЕРНУЛИ!
     
     st.markdown("<hr>", unsafe_allow_html=True)
     

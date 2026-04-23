@@ -2,16 +2,11 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
+
 # --- 1. НАЛАШТУВАННЯ СТОРІНКИ ---
-st.set_page_config(page_title="AI Sales Audit | Demo Case", layout="wide")
+st.set_page_config(page_title="EXIST.UA | Revenue Recovery", layout="wide", initial_sidebar_state="expanded")
 
-st.title("🚀 AI-Аудит Відділу Продажів")
-st.subheader("Демонстраційний кейс: Аналіз ефективності та пошук втраченого прибутку")
-
-st.info("""
-**Як це працює?** Нейромережа прослуховує 100% дзвінків, оцінює навички менеджерів за 10+ критеріями та виявляє причини відмов. 
-На цьому дашборді ви бачите реальні дані (анонімізовані), які допомагають СЕО приймати рішення на основі цифр, а не відчуттів.
-""")
+st.title("Аналітика Відділу Продажів (CEO View)")
 
 st.markdown("""
 <style>
@@ -32,6 +27,7 @@ def load_data():
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
+        # Використовуємо твій робочий URL бази EXIST
         url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=0#gid=0"
         df = conn.read(spreadsheet=url)
     except Exception:
@@ -98,18 +94,6 @@ with st.sidebar:
     st.markdown("### Вага потенціалу:")
     st.write("🔥 High: 100%")
     st.write("⚡ Medium: 50%")
-
-    st.markdown("---")
-    st.markdown("### 🛠 Бажаєте такий аудит?")
-    st.markdown("""
-    Я можу налаштувати таку систему для вашого бізнесу за 3 дні:
-    - ✅ Автоматичне прослуховування дзвінків
-    - ✅ Інтеграція з вашою CRM/телефонією
-    - ✅ Щоденні звіти про втрачений прибуток
-    
-    **Зв'язатися з розробником:**
-    [Написати в Telegram](https://t.me/Твій_Нікнейм)
-    """)
 
 # Фінальний відфільтрований датафрейм для всіх вкладок
 df_filtered = df[
@@ -220,14 +204,10 @@ with tab_ceo:
     else:
         st.success("Втрат не виявлено!")
 
-    st.markdown("---")
-    st.warning("💡 **Висновок для інвестора:** Система виявляє точки втрат і показує, де можна повернути частину угод за рахунок покращення роботи менеджерів.")
-
 # ==========================================
 # ПАНЕЛЬ 2: MANAGER COACHING
 # ==========================================
 with tab_coach:
-    st.success("🎯 **Для РОПа:** ШІ не просто ставить бали, а підказує, які саме фрази менеджера завадили продажу. Дивіться блок 'Поради' праворуч.")
     st.markdown("### 📊 Детальний розбір навичок")
     
     skill_cols = ['Привітання', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Привітність', 'Активне_Слухання', 'Впевненість_Мовлення', 'Емпатія']

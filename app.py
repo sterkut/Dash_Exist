@@ -104,34 +104,53 @@ st.title("Аналітика Відділу Продажів (CEO View)")
 tab_ceo, tab_coach, tab_call = st.tabs(["💰 CEO: Втрачений прибуток", "🎓 Навчання: Розбір навичок", "🎧 Картка дзвінка"])
 
 # ==========================================
-# ПАНЕЛЬ 1: CEO
+# ПАНЕЛЬ 1: CEO (Гроші та Ефективність)
 # ==========================================
 with tab_ceo:
-    # РОБИМО 5 КОЛОНОК ЗАМІСТЬ 4
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
+    # --- БЛОК 1: ВЕЛИКИЙ ФІНАНСОВИЙ ТА ПРОЦЕСНИЙ ЗВІТ ---
+    st.markdown("""
+        <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #F1F5F9; padding-bottom: 10px;">📊 Ключові показники втрат та ефективності</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Розрахунки для метрик
     total_lost_main = df_filtered["Втрачено_Головна"].sum()
     total_lost_cross = df_filtered["Втрачено_Крос"].sum()
     total_lost_all = df_filtered["Втрачено_грн"].sum()
     
-    # Розрахунок % втрат ГАРЯЧИХ (High + Medium)
+    # % втрат ГАРЯЧИХ (High + Medium)
     hot_med_deals = df_filtered[df_filtered['Готовність'].isin(['High', 'Medium'])]
     hot_med_total = len(hot_med_deals)
     hot_med_lost = len(hot_med_deals[hot_med_deals['ROOT_PROBLEM'] != 'Немає'])
     hot_loss_rate = (hot_med_lost / hot_med_total * 100) if hot_med_total > 0 else 0
 
-    # Розрахунок % без крос-селу (тільки серед УСПІШНИХ угод)
+    # Розрахунок процесних відсотків (тільки серед УСПІШНИХ угод)
     success_deals = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає']
+    
+    # % без крос-селу
     missed_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Ні'])
     missed_cross_rate = (missed_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
-
-    col1.metric("ЗАГАЛЬНІ ВТРАТИ", f"{total_lost_all:,.0f} ₴")
-    col2.metric("Втрати (Основні)", f"{total_lost_main:,.0f} ₴")
-    col3.metric("Втрати (Крос-сел)", f"{total_lost_cross:,.0f} ₴")
-    col4.metric("% втрат ГАРЯЧИХ", f"{hot_loss_rate:.0f}%")
-    col5.metric("% без CROSS-SELL", f"{missed_cross_rate:.0f}%")  # ПОВЕРНУЛИ!
     
-    st.markdown("<hr>", unsafe_allow_html=True)
+    # % без екосистеми
+    missed_eco_count = len(success_deals[success_deals.get('Екосистема', '') == 'Ні'])
+    missed_eco_rate = (missed_eco_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
+
+    # ВЕРХНІЙ РЯДОК: ГРОШІ
+    m_col1, m_col2, m_col3 = st.columns(3)
+    m_col1.metric("🔥 ЗАГАЛЬНІ ВТРАТИ", f"{total_lost_all:,.0f} ₴")
+    m_col2.metric("💰 Втрати (Основні)", f"{total_lost_main:,.0f} ₴")
+    m_col3.metric("📦 Втрати (Крос-сел)", f"{total_lost_cross:,.0f} ₴")
+
+    st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True) # Відступ між рядками
+
+    # НИЖНІЙ РЯДОК: ВІДСОТКИ (ПРИЧИНИ)
+    p_col1, p_col2, p_col3 = st.columns(3)
+    p_col1.metric("📉 % втрат ГАРЯЧИХ", f"{hot_loss_rate:.0f}%", help="Відсоток клієнтів з High/Medium готовністю, які нічого не купили")
+    p_col2.metric("🛒 % без CROSS-SELL", f"{missed_cross_rate:.0f}%", help="Відсоток успішних угод, де менеджер не запропонував супутній товар")
+    p_col3.metric("🌐 % без ЕКОСИСТЕМИ", f"{missed_eco_rate:.0f}%", help="Відсоток успішних угод, де не було пропозиції сервісів екосистеми")
+
+    st.markdown("<hr style='margin: 30px 0;'>", unsafe_allow_html=True)
     
     row1_col1, row1_col2 = st.columns([1.2, 1])
     

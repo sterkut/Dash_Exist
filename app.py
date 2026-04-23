@@ -132,8 +132,14 @@ with tab_ceo:
     missed_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Ні'])
     missed_cross_rate = (missed_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
     
-    # % без екосистеми
-    missed_eco_count = len(success_deals[success_deals.get('Екосистема', '') == 'Ні'])
+    # % без екосистеми (Оскільки це бал від 0 до 2, ми рахуємо успішні угоди, де бал = 0)
+    if 'Екосистема' in success_deals.columns:
+        # Переводимо в числа (на випадок, якщо Excel зберіг їх як текст) і рахуємо нулі
+        eco_scores = pd.to_numeric(success_deals['Екосистема'], errors='coerce').fillna(0)
+        missed_eco_count = len(success_deals[eco_scores == 0])
+    else:
+        missed_eco_count = 0
+        
     missed_eco_rate = (missed_eco_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
 
     # ВЕРХНІЙ РЯДОК: ГРОШІ

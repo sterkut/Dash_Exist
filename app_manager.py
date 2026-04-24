@@ -137,11 +137,23 @@ my_df_filtered = my_df[
     (my_df["ROOT_PROBLEM"].isin(selected_roots))
 ].copy()
 
-# МАТЕМАТИКА ВТРАТ
+# МАТЕМАТИКА ВТРАТ (Справедлива для менеджера)
 intent_weights = {"High": 1.0, "Medium": 0.5, "Low": 0.0}
+
+# Причини, за які менеджер не несе відповідальності
+SYSTEMIC_ISSUES = ["Наявність", "Ціна", "Термін поставки", "Процес"]
+
 my_df_filtered['Потенціал_грн'] = my_df_filtered['Готовність'].map(intent_weights).fillna(0) * avg_check
-my_df_filtered['Втрачено_Головна'] = my_df_filtered.apply(lambda x: x['Потенціал_грн'] if x['ROOT_PROBLEM'] != 'Немає' else 0, axis=1)
-my_df_filtered['Втрачено_Крос'] = my_df_filtered.apply(lambda x: (avg_cross_check * (cross_conv/100)) if (x['ROOT_PROBLEM'] == 'Немає' and x['Спроба_Крос_Селу'] == 'Ні') else 0, axis=1)
+
+# Рахуємо втрату тільки якщо це провина менеджера (не системна помилка і не успішна угода)
+my_df_filtered['Втрачено_Головна'] = my_df_filtered.apply(
+    lambda x: x['Потенціал_грн'] if (x['ROOT_PROBLEM'] != 'Немає' and x['ROOT_PROBLEM'] not in SYSTEMIC_ISSUES) else 0, axis=1
+)
+
+my_df_filtered['Втрачено_Крос'] = my_df_filtered.apply(
+    lambda x: (avg_cross_check * (cross_conv/100)) if (x['ROOT_PROBLEM'] == 'Немає' and x['Спроба_Крос_Селу'] == 'Ні') else 0, axis=1
+)
+
 my_df_filtered['Втрачено_грн'] = my_df_filtered['Втрачено_Головна'] + my_df_filtered['Втрачено_Крос']
 
 # --- 6. ЗАГОЛОВОК І ВКЛАДКИ ---

@@ -27,7 +27,6 @@ def load_data():
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
-        # Використовуємо твій робочий URL бази EXIST
         url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=0#gid=0"
         df = conn.read(spreadsheet=url)
     except Exception:
@@ -39,16 +38,20 @@ def load_data():
         except Exception:
             pass
 
-    for col in df.columns:
-            col_str = str(col) # Примусово робимо назву текстом, щоб уникнути TypeError
+    if not df.empty:
+        rename_dict = {}
+        for col in df.columns:
+            col_str = str(col)  # Рятує від помилок, якщо назва колонки порожня або число
             if "OOT" in col_str and "PROBLEM" in col_str: rename_dict[col] = "ROOT_PROBLEM"
             if "Готовність" in col_str: rename_dict[col] = "Готовність"
             if "Крос_Сел" in col_str and "проба" in col_str: rename_dict[col] = "Спроба_Крос_Селу"
             if "Дотиснув" in col_str: rename_dict[col] = "Зафіксував_Наступний_Крок"
             if "Екосистема" in col_str: rename_dict[col] = "Екосистема"
+        
+        # Вирівняно рівно під 'for' — це виправляє IndentationError
         df.rename(columns=rename_dict, inplace=True)
         
-        # Примусово робимо ці колонки текстом
+        # Примусово робимо ці колонки текстом для стабільності
         if "Менеджер" in df.columns:
             df["Менеджер"] = df["Менеджер"].astype(str)
         if "Дзвінок" in df.columns:

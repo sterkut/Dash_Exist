@@ -22,13 +22,17 @@ MANAGER_PINS = {
     "1365": "Kobernik",
     "2563": "Gardaman",
     "9586": "Nikolaychuk",
-    "7562": "Bezdukhy",
-    "4216": "Chumakevich",
+    "7562": "Bezdukhyi",
+    "4216": "Chumakevych",
     "7381": "Gaskov",
     "5536": "Bezushkevich",
     "9743": "Palanichko",
-    "9832": "Tovaryansky",
-    "5741": "Zabrodsky"
+    "9832": "Tovarianskyi",
+    "9586": "Protsiv",
+    "3632": "Sobeiko",
+    "5587": "Yakubovskyi",
+    "2534": "Melnyk",
+    "5741": "Zabrodskyi"
 }
 
 # --- 3. ЛОГІКА АВТОРИЗАЦІЇ ---

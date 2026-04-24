@@ -39,13 +39,13 @@ def load_data():
         except Exception:
             pass
 
-    if not df.empty:
-        rename_dict = {}
-        for col in df.columns:
-            if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
-            if "Готовність" in col: rename_dict[col] = "Готовність"
-            if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
-            if "Дотиснув" in col: rename_dict[col] = "Зафіксував_Наступний_Крок"
+    for col in df.columns:
+            col_str = str(col) # Примусово робимо назву текстом, щоб уникнути TypeError
+            if "OOT" in col_str and "PROBLEM" in col_str: rename_dict[col] = "ROOT_PROBLEM"
+            if "Готовність" in col_str: rename_dict[col] = "Готовність"
+            if "Крос_Сел" in col_str and "проба" in col_str: rename_dict[col] = "Спроба_Крос_Селу"
+            if "Дотиснув" in col_str: rename_dict[col] = "Зафіксував_Наступний_Крок"
+            if "Екосистема" in col_str: rename_dict[col] = "Екосистема"
         df.rename(columns=rename_dict, inplace=True)
         
         # Примусово робимо ці колонки текстом

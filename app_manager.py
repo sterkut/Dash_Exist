@@ -32,7 +32,7 @@ MANAGER_PINS = {
     "3632": "Sobeiko",
     "5587": "Yakubovskyi",
     "2534": "Melnyk",
-    "2534": "Verner",
+    "8472": "Verner",
     "5741": "Zabrodskyi"
 }
 

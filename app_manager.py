@@ -18,7 +18,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. БАЗА PIN-КОДІВ МЕНЕДЖЕРІВ ---
-# Впиши сюди реальні прізвища (точно як у таблиці)
 MANAGER_PINS = {
     "1365": "Kobernik",
     "2563": "Gardaman",
@@ -55,7 +54,7 @@ if not st.session_state.logged_in:
             else:
                 st.error("❌ Невірний PIN-код. Спробуйте ще раз.")
         st.markdown("</div>", unsafe_allow_html=True)
-    st.stop() # Зупиняємо виконання коду для неавторизованих
+    st.stop()
 
 # --- 4. ЗАВАНТАЖЕННЯ ДАНИХ ---
 @st.cache_data(ttl=60)
@@ -82,8 +81,7 @@ def load_data():
             if "Готовність" in col: rename_dict[col] = "Готовність"
             if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
             if "Дотиснув" in col: rename_dict[col] = "Зафіксував_Наступний_Крок"
-            # ФІКС ПРОБІЛІВ ЕКОСИСТЕМИ
-            if "Екосистема" in col: rename_dict[col] = "Екосистема" 
+            if "Екосистема" in col: rename_dict[col] = "Екосистема"
         df.rename(columns=rename_dict, inplace=True)
         
         if "Менеджер" in df.columns:
@@ -99,7 +97,7 @@ if df_full.empty:
     st.error("❌ Не вдалося знайти дані.")
     st.stop()
 
-# ВІДРІЗАЄМО ЧУЖІ ДАНІ (Залишаємо тільки поточного менеджера)
+# ВІДРІЗАЄМО ЧУЖІ ДАНІ
 my_df = df_full[df_full["Менеджер"] == st.session_state.manager_name].copy()
 
 if my_df.empty:
@@ -123,10 +121,6 @@ with st.sidebar:
     selected_roots = st.multiselect("🚨 Результат / Причина", root_list, default=root_list)
 
     st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("### 💸 Калькулятор твоїх бонусів")
-    st.write("Порахуй, скільки ти міг би заробити додатково.")
-    my_bonus_percent = st.slider("Мій відсоток від продажу (%)", 0.0, 10.0, 2.0, 0.5)
-    
     st.markdown("### 💰 Базові параметри угод")
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
     avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=100, step=10)
@@ -137,15 +131,13 @@ my_df_filtered = my_df[
     (my_df["ROOT_PROBLEM"].isin(selected_roots))
 ].copy()
 
-# МАТЕМАТИКА ВТРАТ (Справедлива для менеджера)
+# --- МАТЕМАТИКА ВТРАТ (Справедлива для менеджера) ---
 intent_weights = {"High": 1.0, "Medium": 0.5, "Low": 0.0}
-
-# Причини, за які менеджер не несе відповідальності
 SYSTEMIC_ISSUES = ["Наявність", "Ціна", "Термін поставки", "Процес"]
 
 my_df_filtered['Потенціал_грн'] = my_df_filtered['Готовність'].map(intent_weights).fillna(0) * avg_check
 
-# Рахуємо втрату тільки якщо це провина менеджера (не системна помилка і не успішна угода)
+# Втрата рахується тільки якщо причина в менеджері
 my_df_filtered['Втрачено_Головна'] = my_df_filtered.apply(
     lambda x: x['Потенціал_грн'] if (x['ROOT_PROBLEM'] != 'Немає' and x['ROOT_PROBLEM'] not in SYSTEMIC_ISSUES) else 0, axis=1
 )
@@ -177,11 +169,9 @@ with tab_stats:
     success_deals = my_df_filtered[my_df_filtered['ROOT_PROBLEM'] == 'Немає']
     win_rate = (len(success_deals) / total_calls * 100) if total_calls > 0 else 0
     
-    # Відсоток ЗРОБЛЕНИХ крос-селів
     made_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Так'])
     cross_rate = (made_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
     
-    # Відсоток ЗРОБЛЕНИХ пропозицій Екосистеми
     if 'Екосистема' in success_deals.columns:
         eco_scores = pd.to_numeric(success_deals['Екосистема'], errors='coerce').fillna(0)
         made_eco_count = len(success_deals[eco_scores > 0])
@@ -190,7 +180,6 @@ with tab_stats:
         
     eco_rate = (made_eco_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
 
-    # ВЕРХНІЙ РЯДОК: АБСОЛЮТНІ ЦИФРИ
     m_col1, m_col2, m_col3 = st.columns(3)
     m_col1.metric("📞 Всього дзвінків", f"{total_calls}")
     m_col2.metric("💸 Недоотримано (Основа)", f"{lost_main:,.0f} ₴")
@@ -198,7 +187,6 @@ with tab_stats:
 
     st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
 
-    # НИЖНІЙ РЯДОК: ВІДСОТКИ
     p_col1, p_col2, p_col3 = st.columns(3)
     p_col1.metric("🛒 % Зроблених крос-селів", f"{cross_rate:.0f}%", help="Відсоток успішних угод, де ти запропонував супутній товар")
     p_col2.metric("🌐 % Екосистеми", f"{eco_rate:.0f}%", help="Відсоток успішних угод, де ти розповів про додаткові сервіси")
@@ -273,38 +261,8 @@ with tab_call:
 
             deg = (score_12 / 12) * 360
             
-            # HTML БЕЗ ВІДСТУПІВ
-            html_skills = f"""<div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 40px; flex-wrap: wrap;">
-<div style="text-align: center; min-width: 130px;">
-<div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin: 0 auto 12px auto;">
-<div style="width: 95px; height: 95px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-<span style="font-size: 32px; font-weight: 800; color: #0F172A; line-height: 1;">{score_12}</span>
-<span style="font-size: 13px; color: #64748B; font-weight: 600;">з 12</span>
-</div>
-</div>
-<span style="background: {score_color}15; color: {score_color}; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;">{score_text}</span>
-</div>
-<div style="flex: 1;">
-<h3 style="margin: 0 0 15px 0; color: #0F172A; font-size: 18px;">📊 Твої оцінки в цьому дзвінку</h3>
-<div style="display: flex; gap: 15px; flex-wrap: wrap;">
-<div style="flex: 1; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
-<div style="font-size: 24px; margin-bottom: 5px;">👍</div>
-<div style="font-size: 20px; font-weight: 800; color: #166534;">{likes}</div>
-<div style="font-size: 13px; color: #15803D; font-weight: 600;">Твої сильні сторони</div>
-</div>
-<div style="flex: 1; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
-<div style="font-size: 24px; margin-bottom: 5px;">😐</div>
-<div style="font-size: 20px; font-weight: 800; color: #B45309;">{norms}</div>
-<div style="font-size: 13px; color: #B45309; font-weight: 600;">Можна краще</div>
-</div>
-<div style="flex: 1; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;">
-<div style="font-size: 24px; margin-bottom: 5px;">🚩</div>
-<div style="font-size: 20px; font-weight: 800; color: #991B1B;">{dislikes}</div>
-<div style="font-size: 13px; color: #B91C1C; font-weight: 600;">Твої зони росту</div>
-</div>
-</div>
-</div>
-</div>"""
+            # HTML без переносів рядків для запобігання багів з Markdown
+            html_skills = f"<div style='background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 40px; flex-wrap: wrap;'><div style='text-align: center; min-width: 130px;'><div style='width: 120px; height: 120px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin: 0 auto 12px auto;'><div style='width: 95px; height: 95px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;'><span style='font-size: 32px; font-weight: 800; color: #0F172A; line-height: 1;'>{score_12}</span><span style='font-size: 13px; color: #64748B; font-weight: 600;'>з 12</span></div></div><span style='background: {score_color}15; color: {score_color}; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;'>{score_text}</span></div><div style='flex: 1;'><h3 style='margin: 0 0 15px 0; color: #0F172A; font-size: 18px;'>📊 Твої оцінки в цьому дзвінку</h3><div style='display: flex; gap: 15px; flex-wrap: wrap;'><div style='flex: 1; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;'><div style='font-size: 24px; margin-bottom: 5px;'>👍</div><div style='font-size: 20px; font-weight: 800; color: #166534;'>{likes}</div><div style='font-size: 13px; color: #15803D; font-weight: 600;'>Твої сильні сторони</div></div><div style='flex: 1; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;'><div style='font-size: 24px; margin-bottom: 5px;'>😐</div><div style='font-size: 20px; font-weight: 800; color: #B45309;'>{norms}</div><div style='font-size: 13px; color: #B45309; font-weight: 600;'>Можна краще</div></div><div style='flex: 1; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 15px; text-align: center; min-width: 120px;'><div style='font-size: 24px; margin-bottom: 5px;'>🚩</div><div style='font-size: 20px; font-weight: 800; color: #991B1B;'>{dislikes}</div><div style='font-size: 13px; color: #B91C1C; font-weight: 600;'>Твої зони росту</div></div></div></div></div>"
             st.markdown(html_skills, unsafe_allow_html=True)
 
             is_success = row.get("ROOT_PROBLEM", "Немає") == "Немає"
@@ -315,35 +273,19 @@ with tab_call:
             status_icon = '✅' if is_success else '❌'
 
             lost_total = row.get('Втрачено_грн', 0)
-            
-            # Рахуємо особисту втрату в цій конкретній картці
-            personal_lost_bonus = lost_total * (my_bonus_percent / 100)
+            lost_main = row.get('Втрачено_Головна', 0)
+            lost_cross = row.get('Втрачено_Крос', 0)
             
             loss_html = ""
             if lost_total > 0:
-                loss_html = f"<div style='margin-top: 15px; padding: 12px; background: #FEF2F2; border: 1px dashed #FECACA; border-radius: 8px; color: #991B1B;'><b style='font-size: 15px;'>💸 Твій недоотриманий бонус тут: {personal_lost_bonus:,.0f} ₴</b><br><span style='font-size: 13px;'>(Загальна втрата чеку: {lost_total:,.0f} ₴)</span></div>"
+                loss_html = f"<div style='margin-top: 15px; padding: 12px; background: #FEF2F2; border: 1px dashed #FECACA; border-radius: 8px; color: #991B1B;'><b style='font-size: 15px;'>💸 Недоотриманий потенціал угоди: {lost_total:,.0f} ₴</b><br><span style='font-size: 13px;'>З них основа: {lost_main:,.0f} ₴ | Крос-сел: {lost_cross:,.0f} ₴</span></div>"
 
-            html_result = f"""<div style="background: {result_bg}; border: 1px solid {result_border}; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-<div style="display: flex; gap: 15px; align-items: flex-start;">
-<div style="font-size: 24px; margin-top: 2px;">{status_icon}</div>
-<div style="width: 100%;">
-<h4 style="margin: 0 0 4px 0; color: #111827; font-size: 16px;">Результат: {result_title}</h4>
-<p style="margin: 0; color: #374151; font-size: 14px;">{result_desc} <br> Готовність клієнта: <b>{row.get('Готовність', 'N/A')}</b> | Крос-сел: <b>{row.get('Спроба_Крос_Селу', 'Ні')}</b></p>
-{loss_html}
-</div>
-</div>
-</div>"""
+            html_result = f"<div style='background: {result_bg}; border: 1px solid {result_border}; border-radius: 12px; padding: 20px; margin-bottom: 20px;'><div style='display: flex; gap: 15px; align-items: flex-start;'><div style='font-size: 24px; margin-top: 2px;'>{status_icon}</div><div style='width: 100%;'><h4 style='margin: 0 0 4px 0; color: #111827; font-size: 16px;'>Результат: {result_title}</h4><p style='margin: 0; color: #374151; font-size: 14px;'>{result_desc} <br> Готовність клієнта: <b>{row.get('Готовність', 'N/A')}</b> | Крос-сел: <b>{row.get('Спроба_Крос_Селу', 'Ні')}</b></p>{loss_html}</div></div></div>"
             st.markdown(html_result, unsafe_allow_html=True)
 
             tone_text = row.get("Тон_Розмови", "Тон розмови не проаналізовано.")
             
-            html_tone = f"""<div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-<div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
-<div style="font-size: 20px;">🎙️</div>
-<h4 style="margin: 0; color: #0F172A; font-size: 16px;">Як звучала розмова (Аналіз тону)</h4>
-</div>
-<p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.5; padding-left: 30px;">{tone_text}</p>
-</div>"""
+            html_tone = f"<div style='background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);'><div style='display: flex; gap: 10px; align-items: center; margin-bottom: 8px;'><div style='font-size: 20px;'>🎙️</div><h4 style='margin: 0; color: #0F172A; font-size: 16px;'>Як звучала розмова (Аналіз тону)</h4></div><p style='margin: 0; color: #475569; font-size: 14px; line-height: 1.5; padding-left: 30px;'>{tone_text}</p></div>"
             st.markdown(html_tone, unsafe_allow_html=True)
     else:
         st.info("Немає даних.")

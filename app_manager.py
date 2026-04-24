@@ -19,19 +19,20 @@ st.markdown("""
 
 # --- 2. БАЗА PIN-КОДІВ МЕНЕДЖЕРІВ ---
 MANAGER_PINS = {
-    "1365": "Kobernik",
+    "1365": "Kobernyk",
     "2563": "Gardaman",
     "9586": "Nikolaychuk",
     "7562": "Bezdukhyi",
     "4216": "Chumakevych",
     "7381": "Gaskov",
-    "5536": "Bezushkevich",
+    "5536": "Bezushkevych",
     "9743": "Palanichko",
     "9832": "Tovarianskyi",
     "9586": "Protsiv",
     "3632": "Sobeiko",
     "5587": "Yakubovskyi",
     "2534": "Melnyk",
+    "2534": "Verner",
     "5741": "Zabrodskyi"
 }
 

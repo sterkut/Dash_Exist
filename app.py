@@ -39,22 +39,32 @@ def load_data():
             pass
 
     if not df.empty:
-        # 🟢 УНІВЕРСАЛЬНИЙ ПИЛОСОС: зрізає невидимі пробіли у всіх заголовках таблиці!
-        df.columns = df.columns.str.strip() 
+        # 1. Очищення назв колонок від невидимих символів та пробілів
+        df.columns = [str(c).strip() for c in df.columns]
         
         rename_dict = {}
         for col in df.columns:
-            col_str = str(col)
-            if "OOT" in col_str and "PROBLEM" in col_str: rename_dict[col] = "ROOT_PROBLEM"
-            if "Готовність" in col_str: rename_dict[col] = "Готовність"
-            if "Крос_Сел" in col_str and "проба" in col_str: rename_dict[col] = "Спроба_Крос_Селу"
-            if "Дотиснув" in col_str: rename_dict[col] = "Зафіксував_Наступний_Крок"
-            if "Екосистема" in col_str: rename_dict[col] = "Екосистема"
+            # ШУКАЄМО МЕНЕДЖЕРА (навіть якщо там "Менеджери", "ПІБ Менеджера" тощо)
+            if "енеджер" in col or "anager" in col: 
+                rename_dict[col] = "Менеджер"
+            
+            # Інші колонки
+            if "OOT" in col and "PROBLEM" in col: rename_dict[col] = "ROOT_PROBLEM"
+            if "Готовність" in col: rename_dict[col] = "Готовність"
+            if "Крос_Сел" in col and "проба" in col: rename_dict[col] = "Спроба_Крос_Селу"
+            if "Дотиснув" in col: rename_dict[col] = "Зафіксував_Наступний_Крок"
+            if "Екосистема" in col: rename_dict[col] = "Екосистема"
         
         df.rename(columns=rename_dict, inplace=True)
         
-        if "Менеджер" in df.columns:
-            df["Менеджер"] = df["Менеджер"].astype(str)
+        # 2. Гарантуємо, що колонка "Менеджер" існує, щоб не було KeyError
+        if "Менеджер" not in df.columns:
+            # Якщо раптом взагалі не знайшли, беремо першу колонку як менеджерів 
+            # (це крайній захід, щоб апка не падала)
+            df.rename(columns={df.columns[0]: "Менеджер"}, inplace=True)
+
+        # Приведення типів
+        df["Менеджер"] = df["Менеджер"].astype(str)
         if "Дзвінок" in df.columns:
             df["Дзвінок"] = df["Дзвінок"].astype(str)
             

@@ -228,15 +228,26 @@ with tab_coach:
         
     coach_stats = df_filtered.groupby("Менеджер").agg(**agg_dict).reset_index()
     
+    # 🟢 СОРТУВАННЯ: Від найвищого Хард-балу до найнижчого
+    if "Середній_Hard" in coach_stats.columns:
+        coach_stats = coach_stats.sort_values(by="Середній_Hard", ascending=False)
+    
     col_c1, col_c2 = st.columns([2, 1.2])
     
     with col_c1:
-        gradient_cols_main = [c for c in ['Середній_Hard', 'Середній_Soft'] if c in coach_stats.columns]
+        # Розділяємо колонки для різних градієнтів
+        col_hard = [c for c in ['Середній_Hard'] if c in coach_stats.columns]
+        col_soft = [c for c in ['Середній_Soft'] if c in coach_stats.columns]
         gradient_cols_skills = [c for c in existing_skills if c in coach_stats.columns]
         
-        styled_coach = coach_stats.style.format(precision=1) \
-            .background_gradient(cmap='Greens', subset=gradient_cols_main) \
-            .background_gradient(cmap='Blues', subset=gradient_cols_skills, vmin=0, vmax=2)
+        # 🟢 СКЛАДНЕ РОЗФАРБОВУВАННЯ
+        styled_coach = coach_stats.style.format(precision=1)
+        if col_hard:
+            styled_coach = styled_coach.background_gradient(cmap='RdYlGn', subset=col_hard) # Світлофор
+        if col_soft:
+            styled_coach = styled_coach.background_gradient(cmap='Greens', subset=col_soft) # Від світло- до темно-зеленого
+        if gradient_cols_skills:
+            styled_coach = styled_coach.background_gradient(cmap='Blues', subset=gradient_cols_skills, vmin=0, vmax=2) # Від світло- до темно-синього
             
         st.dataframe(styled_coach, use_container_width=True, hide_index=True)
         

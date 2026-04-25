@@ -88,6 +88,9 @@ with st.sidebar:
     root_list = sorted(df_step2["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step2.columns else []
     selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list)
 
+    # 🟢 Фінальний відфільтрований датафрейм (тепер він правильно формується після всіх кроків)
+    df_filtered = df_step2[df_step2["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step2
+
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("### 💰 Фінансові параметри")
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
@@ -100,6 +103,18 @@ with st.sidebar:
     st.markdown("### Вага потенціалу:")
     st.write("🔥 High: 100%")
     st.write("⚡ Medium: 50%")
+    
+    # ==========================================
+    # 🟢 НОВИЙ БЛОК: ЛІЧИЛЬНИК ХВИЛИН
+    # ==========================================
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("### ⏱ Навантаження на ШІ")
+    
+    if "Тривалість_хв" in df_filtered.columns:
+        total_min = df_filtered["Тривалість_хв"].sum()
+        st.metric("Опрацьовано аудіо", f"{total_min:,.1f} хв")
+    else:
+        st.info("Колонка 'Тривалість_хв' ще не з'явилася в базі.")
 
 # Фінальний відфільтрований датафрейм для всіх вкладок
 df_filtered = df[

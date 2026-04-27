@@ -117,7 +117,7 @@ with st.sidebar:
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
     
     st.markdown("#### Параметри Крос-селу")
-    avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=100, step=10)
+    avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=150, step=15)
     cross_conv = st.slider("Конверсія у доп. продаж (%)", 0, 100, 10)
     
     st.markdown("<br>", unsafe_allow_html=True)

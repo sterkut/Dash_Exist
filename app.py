@@ -20,7 +20,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. РОЗУМНЕ ЗАВАНТАЖЕННЯ ДАНИХ ---
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=600)  # 600 секунд = 10 хвилин
 def load_data():
     df = pd.DataFrame()
     
@@ -70,6 +70,27 @@ if df.empty:
 
 # --- 3. САЙДБАР: КАСКАДНІ ФІЛЬТРИ ТА ГРОШІ ---
 with st.sidebar:
+    # ==========================================
+    # 💎 БРЕНДИНГ АЛЛО ГАРАЖ ТА ОНОВЛЕННЯ
+    # ==========================================
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 10px; border-bottom: 2px solid #f0f2f6; margin-bottom: 15px;">
+            <h1 style="color: #1E3A8A; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28px; letter-spacing: 1px; margin-bottom: 0;">
+                ALLO GARAGE<span style="color: #3B82F6;">.ai</span>
+            </h1>
+            <p style="color: #6B7280; font-size: 12px; font-weight: 500; text-transform: uppercase; margin-top: 5px;">
+                ШІ-аудит відділу продажів
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    if st.button("🔄 Оновити базу даних", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
     st.markdown("### 🎛 Фільтри")
     
     # КРОК 1: Менеджери

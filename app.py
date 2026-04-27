@@ -77,7 +77,7 @@ with st.sidebar:
         """
         <div style="text-align: center; padding: 10px; border-bottom: 2px solid #f0f2f6; margin-bottom: 15px;">
             <h1 style="color: #1E3A8A; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28px; letter-spacing: 1px; margin-bottom: 0;">
-                ALLO GARAGE<span style="color: #3B82F6;">.ai</span>
+                allogarage<span style="color: #3B82F6;">.ai</span>
             </h1>
             <p style="color: #6B7280; font-size: 12px; font-weight: 500; text-transform: uppercase; margin-top: 5px;">
                 ШІ-аудит відділу продажів

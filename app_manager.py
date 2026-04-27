@@ -128,7 +128,7 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("### 💰 Базові параметри угод")
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
-    avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=100, step=10)
+    avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=150, step=15)
     cross_conv = st.slider("Конверсія у доп. продаж (%)", 0, 100, 10)
 
 my_df_filtered = my_df[

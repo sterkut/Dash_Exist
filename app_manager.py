@@ -20,7 +20,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. БАЗА PIN-КОДІВ ---
+# --- 2. БАЗА PIN-КОДІВ (ЗАЛИШИВ ЯК Є) ---
 MANAGER_PINS = {
     "1365": "Kobernyk",
     "2563": "Gardaman",
@@ -46,7 +46,8 @@ def load_data():
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
-        url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=0#gid=0"
+        # Використовуємо актуальне посилання на нову базу
+        url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=398555031#gid=398555031"
         df = conn.read(spreadsheet=url)
     except: pass
     
@@ -80,7 +81,7 @@ if not st.session_state["authenticated"]:
         st.image("https://www.exist.ua/assets/images/logo.svg", width=200)
         st.subheader("Вхід для менеджерів")
         pin = st.text_input("Введіть свій PIN-код", type="password")
-        if st.button("Увійти", use_container_width=True):
+        if st.button("Уйти", use_container_width=True):
             if pin in MANAGER_PINS:
                 st.session_state["authenticated"] = True
                 st.session_state["manager_name"] = MANAGER_PINS[pin]
@@ -90,9 +91,11 @@ if not st.session_state["authenticated"]:
         st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- 5. ФІЛЬТРАЦІЯ ДАНИХ (ПЕРСОНАЛІЗАЦІЯ) ---
+# --- 5. ФІЛЬТРАЦІЯ ДАНИХ (БЕЗПЕЧНА) ---
 manager_name = st.session_state["manager_name"]
-df_personal = df_full[df_full["Менеджер"] == manager_name].copy()
+# Додаємо strip() до назви менеджера в базі, щоб уникнути проблем з пробілами
+df_full["Менеджер_Clean"] = df_full["Менеджер"].astype(str).str.strip()
+df_personal = df_full[df_full["Менеджер_Clean"] == manager_name].copy()
 
 # --- 6. ГОЛОВНИЙ ІНТЕРФЕЙС ---
 with st.sidebar:
@@ -109,30 +112,28 @@ st.title("🚀 Мій AI-Тренер")
 tab_analytics, tab_history, tab_trends = st.tabs(["🎯 Дашборд Ефективності", "🎧 Мої дзвінки та розбір", "📈 Моя динаміка"])
 
 # ==========================================
-# ВКЛАДКА 1: ДАШБОРД ЕФЕКТИВНОСТІ (ДУБЛІКАТ)
+# ВКЛАДКА 1: ДАШБОРД ЕФЕКТИВНОСТІ
 # ==========================================
 with tab_analytics:
     st.markdown("### 📊 Загальні показники відділу та твій рейтинг")
     
     c1, c2 = st.columns(2)
     with c1:
-        # Діаграма результатів (по всьому відділу для порівняння)
         res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_full.columns else 'Результат_Розмови'
         if res_col in df_full.columns:
             res_counts = df_full[res_col].value_counts().reset_index()
             res_counts.columns = ['Результат', 'Кількість']
-            fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4, title="Структура результатів (Весь відділ)")
+            fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4, title="Результати розмов (Відділ)")
             st.plotly_chart(fig_res, use_container_width=True)
             
     with c2:
-        # Конверсія (Весь відділ для орієнтиру)
         total_calls = len(df_full)
         success_steps = (df_full['Зафіксував_Наступний_Крок'] == 'Так').sum() if 'Зафіксував_Наступний_Крок' in df_full.columns else 0
         closed_sales = (df_full['ROOT_PROBLEM'] == 'Немає').sum()
         conv_rate = (closed_sales / total_calls * 100) if total_calls > 0 else 0
 
         st.markdown("### 🎯 Конверсія відділу")
-        st.markdown(f"<p style='color: #64748B; font-size: 14px; margin-top: -15px;'>Загальна ефективність: {conv_rate:.1f}%</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #64748B; font-size: 14px; margin-top: -15px;'>Загальна ефективність відділу: {conv_rate:.1f}%</p>", unsafe_allow_html=True)
         
         conv_plot_df = pd.DataFrame({
             'Етап': ['Всі дзвінки', 'Успішні угоди', 'Продажів закрито'],
@@ -140,25 +141,39 @@ with tab_analytics:
         })
         
         fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість',
-                          color='Етап', color_discrete_map={
-                              'Всі дзвінки': '#94A3B8', 
-                              'Успішні угоди': '#3B82F6', 
-                              'Продажів закрито': '#10B981'
-                          })
+                          color='Етап', color_discrete_map={'Всі дзвінки': '#94A3B8', 'Успішні угоди': '#3B82F6', 'Продажів закрито': '#10B981'})
         fig_conv.update_layout(showlegend=False, height=300, margin=dict(t=10, b=0, l=0, r=0), xaxis_title=None, yaxis_title=None)
         st.plotly_chart(fig_conv, use_container_width=True)
 
+    st.markdown("---")
+    st.markdown("### 🏆 Рейтинг менеджерів")
+    
+    # Розрахунок статистики по всіх
+    leaderboard = df_full.groupby("Менеджер_Clean").agg(
+        Дзвінків=('Дзвінок', 'count'),
+        Середній_Хард=('Hard_Бал', 'mean'),
+        Найвищий_Хард=('Hard_Бал', 'max'),
+        Продажів=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum())
+    ).reset_index()
+    leaderboard['Конверсія_%'] = (leaderboard['Продажів'] / leaderboard['Дзвінків'] * 100).round(1)
+    leaderboard = leaderboard.rename(columns={'Менеджер_Clean': 'Прізвище'}).sort_values(by="Середній_Хард", ascending=False)
+    
+    def highlight_self(s):
+        return ['background-color: #E0F2FE; font-weight: bold' if s.Прізвище == manager_name else '' for _ in s]
+
+    st.dataframe(leaderboard.style.apply(highlight_self, axis=1).format({'Середній_Хард': '{:.1f}', 'Конверсія_%': '{:.1f}%'}), use_container_width=True, hide_index=True)
+
 # ==========================================
-# ВКЛАДКА 2: МОЇ ДЗВІНКИ ТА РОЗБІР (ПЕРСОНАЛЬНО)
+# ВКЛАДКА 2: МОЇ ДЗВІНКИ ТА РОЗБІР
 # ==========================================
 with tab_history:
     st.markdown(f"### 🎧 Твої останні розмови")
     
     if df_personal.empty:
-        st.info("Твої дзвінки ще не пройшли ШІ-аналіз.")
+        st.warning(f"Поки що немає проаналізованих дзвінків для менеджера {manager_name}. Переконайся, що в базі твоє прізвище написано вірно.")
     else:
-        # Список тільки своїх дзвінків
-        cols_to_show = ["Дата", "Дзвінок", "Результат_Розмови_Заголовок", "Hard_Бал", "Готовність"]
+        res_col_p = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_personal.columns else 'Результат_Розмови'
+        cols_to_show = ["Дата", "Дзвінок", res_col_p, "Hard_Бал", "Готовність"]
         cols_to_show = [c for c in cols_to_show if c in df_personal.columns]
         
         event = st.dataframe(df_personal[cols_to_show], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row")
@@ -168,7 +183,7 @@ with tab_history:
             row = df_personal.iloc[selected_indices[0]]
             st.markdown("---")
             
-            # --- Дизайн картки (як у СЕО) ---
+            # 🟢 ВЕРХНІЙ БЛОК: ТРИ КАРТКИ
             t1, t2, t3 = st.columns(3)
             with t1:
                 score = int(row.get('Hard_Бал', 0))
@@ -189,13 +204,16 @@ with tab_history:
                     <h1 style="color: #0EA5E9; margin: 10px 0; font-size: 32px;">{soft}/8</h1>
                 </div>""", unsafe_allow_html=True)
 
-            # Жовтий блок результату
+            # 🟢 ЖОВТИЙ БЛОК РЕЗУЛЬТАТУ
             res_title = row.get('Результат_Розмови_Заголовок', 'Результат')
-            res_desc = row.get('Результат_Розмови_Опис', '-')
+            res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
             st.markdown(f"""
-            <div style="background-color: #FEFCE8; border: 1px solid #FEF08A; border-radius: 12px; padding: 20px; margin: 20px 0;">
-                <h4 style="margin: 0 0 8px 0; color: #B45309;">💡 Результат: {res_title}</h4>
-                <p style="margin: 0; color: #475569;">{res_desc}</p>
+            <div style="background-color: #FEFCE8; border: 1px solid #FEF08A; border-radius: 12px; padding: 20px; display: flex; align-items: flex-start; gap: 16px; margin: 20px 0;">
+                <div style="background-color: #FEF08A; color: #B45309; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; flex-shrink: 0;">?</div>
+                <div>
+                    <h4 style="margin: 0 0 5px 0; color: #0F172A;">{res_title}</h4>
+                    <p style="margin: 0; color: #475569;">{res_desc}</p>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -212,6 +230,7 @@ with tab_history:
                     if item.strip() and item.strip() != "-" and item.strip().lower() != "немає":
                         st.markdown(f"<div class='cross-item'>✕ {item.strip()}</div>", unsafe_allow_html=True)
 
+            st.markdown("<br>", unsafe_allow_html=True)
             st.info(f"**📢 Порада від ШІ:** {row.get('Порада_для_менеджера', 'Продовжуй в тому ж дусі!')}")
 
 # ==========================================
@@ -221,7 +240,7 @@ with tab_trends:
     st.markdown("### 📈 Твоя динаміка розвитку")
     if not df_personal.empty and "Дата" in df_personal.columns:
         trend_data = df_personal.groupby("Дата").agg({"Hard_Бал": "mean", "Крос_сел": "mean"}).reset_index()
-        fig_personal = px.line(trend_data, x="Дата", y="Hard_Бал", markers=True, title="Мій прогрес (Hard Бал)")
+        fig_personal = px.line(trend_data, x="Дата", y="Hard_Бал", markers=True, title="Мій прогрес (Середній Hard Бал)")
         st.plotly_chart(fig_personal, use_container_width=True)
     else:
-        st.info("Потрібно більше закритих днів, щоб побудувати графік прогресу.")
+        st.info("Потрібно більше закритих днів з даними, щоб побудувати графік прогресу.")

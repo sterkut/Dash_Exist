@@ -4,7 +4,7 @@ import plotly.express as px
 import os
 
 # --- 1. НАЛАШТУВАННЯ СТОРІНКИ ---
-st.set_page_config(page_title="DealSense.ai | EXIST.UA", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="allogarage.ai | EXIST.UA", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>

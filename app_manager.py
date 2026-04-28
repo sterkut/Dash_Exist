@@ -125,29 +125,28 @@ with tab_analytics:
             st.plotly_chart(fig_res, use_container_width=True)
             
     with c2:
-        # Конверсія (Весь відділ)
-        conv_data = df_full['ROOT_PROBLEM'].apply(lambda x: 'Успіх' if x == 'Немає' else 'Втрачено').value_counts().reset_index()
-        conv_data.columns = ['Статус', 'Кількість']
-        fig_conv = px.bar(conv_data, x='Статус', y='Кількість', title="Конверсія відділу", color='Статус', color_discrete_map={'Успіх': '#16A34A', 'Втрачено': '#DC2626'})
+        # Конверсія (Весь відділ для орієнтиру)
+        total_calls = len(df_full)
+        success_steps = (df_full['Зафіксував_Наступний_Крок'] == 'Так').sum() if 'Зафіксував_Наступний_Крок' in df_full.columns else 0
+        closed_sales = (df_full['ROOT_PROBLEM'] == 'Немає').sum()
+        conv_rate = (closed_sales / total_calls * 100) if total_calls > 0 else 0
+
+        st.markdown("### 🎯 Конверсія відділу")
+        st.markdown(f"<p style='color: #64748B; font-size: 14px; margin-top: -15px;'>Загальна ефективність: {conv_rate:.1f}%</p>", unsafe_allow_html=True)
+        
+        conv_plot_df = pd.DataFrame({
+            'Етап': ['Всі дзвінки', 'Успішні угоди', 'Продажів закрито'],
+            'Кількість': [total_calls, success_steps, closed_sales]
+        })
+        
+        fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість',
+                          color='Етап', color_discrete_map={
+                              'Всі дзвінки': '#94A3B8', 
+                              'Успішні угоди': '#3B82F6', 
+                              'Продажів закрито': '#10B981'
+                          })
+        fig_conv.update_layout(showlegend=False, height=300, margin=dict(t=10, b=0, l=0, r=0), xaxis_title=None, yaxis_title=None)
         st.plotly_chart(fig_conv, use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("### 🏆 Таблиця лідерів (Твоє місце)")
-    
-    # Розрахунок рейтингу
-    leaderboard = df_full.groupby("Менеджер").agg(
-        Дзвінків=('Дзвінок', 'count'),
-        Сер_Хард=('Hard_Бал', 'mean'),
-        Продажів=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum())
-    ).reset_index()
-    leaderboard['Конверсія_%'] = (leaderboard['Продажів'] / leaderboard['Дзвінків'] * 100).round(1)
-    leaderboard = leaderboard.sort_values(by="Сер_Hard", ascending=False)
-    
-    # Підсвітка самого себе в таблиці
-    def highlight_self(s):
-        return ['background-color: #E0F2FE; font-weight: bold' if s.Менеджер == manager_name else '' for _ in s]
-
-    st.dataframe(leaderboard.style.apply(highlight_self, axis=1).format({'Сер_Hard': '{:.1f}', 'Конверсія_%': '{:.1f}%'}), use_container_width=True, hide_index=True)
 
 # ==========================================
 # ВКЛАДКА 2: МОЇ ДЗВІНКИ ТА РОЗБІР (ПЕРСОНАЛЬНО)

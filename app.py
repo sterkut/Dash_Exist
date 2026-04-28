@@ -209,7 +209,7 @@ with tab_history:
             use_container_width=True,
             hide_index=True,
             on_select="rerun",
-            selection_mode="single"
+            selection_mode="single-row"
         )
         selected_indices = event.selection.rows
     except:

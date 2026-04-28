@@ -109,10 +109,68 @@ df_filtered['Втрачено_Крос'] = df_filtered.apply(lambda x: (avg_cros
 df_filtered['Втрачено_грн'] = df_filtered['Втрачено_Головна'] + df_filtered['Втрачено_Крос']
 
 # --- 4. ВКЛАДКИ ---
-tab_ceo, tab_history, tab_trends, tab_coach = st.tabs(["💰 Фінанси (CEO)", "🎧 Історія та розбір", "📈 Тренди", "🎓 Матриця навичок"])
+tab_analytics, tab_ceo, tab_history, tab_trends, tab_coach = st.tabs(["🎯 Дашборд Ефективності", "💰 Фінанси (CEO)", "🎧 Історія та розбір", "📈 Тренди", "🎓 Матриця навичок"])
 
 # ==========================================
-# ПАНЕЛЬ 1: CEO (Гроші та Ефективність)
+# ПАНЕЛЬ 1: АНАЛІТИКА ТА ЕФЕКТИВНІСТЬ
+# ==========================================
+with tab_analytics:
+    st.markdown("### 📊 Аналітика результатів та конверсія")
+    
+    col_d1, col_d2 = st.columns(2)
+    
+    with col_d1:
+        # Діаграма результатів дзвінків
+        res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_filtered.columns else 'Результат_Розмови'
+        if res_col in df_filtered.columns:
+            res_counts = df_filtered[res_col].value_counts().reset_index()
+            res_counts.columns = ['Результат', 'Кількість']
+            fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4,
+                             title="Структура результатів розмов",
+                             color_discrete_sequence=px.colors.qualitative.Safe)
+            st.plotly_chart(fig_res, use_container_width=True)
+        else:
+            st.info("Немає даних про результати розмов.")
+            
+    with col_d2:
+        # Діаграма конверсії
+        if 'ROOT_PROBLEM' in df_filtered.columns:
+            conv_data = df_filtered['ROOT_PROBLEM'].apply(lambda x: 'Продаж/Успіх' if x == 'Немає' else 'Втрачено лід').value_counts().reset_index()
+            conv_data.columns = ['Статус', 'Кількість']
+            fig_conv = px.bar(conv_data, x='Статус', y='Кількість', text='Кількість',
+                              title="Конверсія в успішну дію",
+                              color='Статус', color_discrete_map={'Продаж/Успіх': '#16A34A', 'Втрачено лід': '#DC2626'})
+            st.plotly_chart(fig_conv, use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("### 👤 Показники менеджерів")
+
+    if 'Менеджер' in df_filtered.columns and 'Hard_Бал' in df_filtered.columns and 'ROOT_PROBLEM' in df_filtered.columns:
+        mgr_stats = df_filtered.groupby("Менеджер").agg(
+            Кількість_дзвінків=('Дзвінок', 'count'),
+            Середній_Хард=('Hard_Бал', 'mean'),
+            Найвищий_Хард=('Hard_Бал', 'max'),
+            Продажів_шт=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum()),
+            Відмов_шт=('ROOT_PROBLEM', lambda x: (x != 'Немає').sum())
+        ).reset_index()
+
+        mgr_stats = mgr_stats.rename(columns={'Менеджер': 'Прізвище'})
+        mgr_stats['Конверсія_%'] = (mgr_stats['Продажів_шт'] / mgr_stats['Кількість_дзвінків'] * 100).round(1)
+
+        styled_mgr = mgr_stats.style.format({
+            'Середній_Хард': '{:.1f}',
+            'Найвищий_Хард': '{:.0f}',
+            'Конверсія_%': '{:.1f}%'
+        })\
+        .set_properties(subset=['Продажів_шт'], **{'font-weight': 'bold'})\
+        .set_properties(subset=['Відмов_шт'], **{'font-weight': 'bold', 'color': '#DC2626'})\
+        .background_gradient(cmap='Greens', subset=['Конверсія_%'])
+
+        st.dataframe(styled_mgr, use_container_width=True, hide_index=True)
+
+
+# ==========================================
+# ПАНЕЛЬ 2: CEO (Гроші та Ефективність)
 # ==========================================
 with tab_ceo:
     st.markdown("""
@@ -180,10 +238,8 @@ with tab_ceo:
             .background_gradient(cmap='Reds', subset=['Втрачено_грн'])
         st.dataframe(styled_loss, use_container_width=True, hide_index=True)
 
-    # 🟢 ПОВЕРНУТИЙ БЛОК: Деталізація втрат та інсайти для СЕО
     st.markdown("<br>### 🔎 Деталізація втрат та інсайти для СЕО", unsafe_allow_html=True)
     
-    # Фільтруємо всі дзвінки, де ROOT_PROBLEM не дорівнює "Немає" (реальні втрати лідів)
     lost_deals_df = df_filtered[df_filtered['ROOT_PROBLEM'] != 'Немає'].copy()
     
     if not lost_deals_df.empty:
@@ -194,13 +250,17 @@ with tab_ceo:
 
 
 # ==========================================
-# ПАНЕЛЬ 2: ІСТОРІЯ ТА КАРТКА ДЗВІНКА
+# ПАНЕЛЬ 3: ІСТОРІЯ ТА КАРТКА ДЗВІНКА
 # ==========================================
 with tab_history:
     st.markdown("### 🎧 Історія дзвінків")
     st.write("Виділіть рядок у таблиці нижче, щоб переглянути детальний аналіз.")
     
-    cols_to_list = ["Дата", "Менеджер", "Дзвінок", "ROOT_PROBLEM", "Hard_Бал", "Готовність"]
+    # Визначаємо, яку колонку показати в прев'ю результату
+    res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_filtered.columns else "Результат_Розмови"
+    
+    cols_to_list = ["Дата", "Менеджер", "Дзвінок", res_col, "Hard_Бал", "Готовність"]
+    cols_to_list = [c for c in cols_to_list if c in df_filtered.columns]
     
     try:
         # Інтерактивна таблиця (запрацює після 'pip install --upgrade streamlit')
@@ -229,44 +289,85 @@ with tab_history:
         st.markdown("---")
         st.subheader(f"📄 Картка розмови: {row.get('Менеджер', 'Невідомо')}")
         
-        c1, c2 = st.columns([1, 2])
+        # 🟢 ВЕРХНІЙ БЛОК: ТРИ КАРТКИ
+        top1, top2, top3 = st.columns(3)
         
-        with c1:
+        with top1:
             score = int(row.get('Hard_Бал', 0))
             color = '#16A34A' if score >= 10 else '#F59E0B' if score >= 6 else '#DC2626'
             bg_color = '#BBF7D0' if score >= 10 else '#FDE68A' if score >= 6 else '#FECACA'
             text = 'Відмінно' if score >= 10 else 'Задовільно' if score >= 6 else 'Потребує уваги'
             
             st.markdown(f"""
-                <div class="card" style="text-align: center;">
-                    <p style="color: #64748B; margin-bottom: 5px; font-weight: 600;">HARD SKILLS (ОЦІНКА)</p>
-                    <h1 style="font-size: 54px; color: #0F172A; margin: 0;">{score}<span style="font-size: 20px; color: #64748B;">/12</span></h1>
-                    <div style="background: {bg_color}; color: {color}; padding: 5px; border-radius: 20px; font-weight: bold; display: inline-block; padding: 5px 15px; margin-top: 10px;">
-                        {text}
-                    </div>
+                <div class="card" style="height: 100%; text-align: center;">
+                    <p style="color: #64748B; margin-bottom: 5px; font-weight: 600; font-size: 13px;">HARD SKILLS (ОЦІНКА)</p>
+                    <h1 style="font-size: 48px; color: #0F172A; margin: 5px 0;">{score}<span style="font-size: 18px; color: #64748B;">/12</span></h1>
+                    <div style="background: {bg_color}; color: {color}; border-radius: 20px; font-weight: bold; display: inline-block; padding: 4px 12px; font-size: 13px;">{text}</div>
                 </div>
             """, unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
+        with top2:
+            intent = row.get('Готовність', 'N/A')
+            st.markdown(f"""
+                <div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+                    <p style="color: #64748B; margin-bottom: 5px; font-weight: 600; font-size: 13px;">ГОТОВНІСТЬ КЛІЄНТА</p>
+                    <h1 style="color: #1E3A8A; margin: 10px 0; font-size: 32px;">{intent}</h1>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with top3:
+            soft = int(row.get('Soft_Бал', 0))
+            tone = row.get('Тон_Розмови', 'Дані відсутні')
+            st.markdown(f"""
+                <div class="card" style="height: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <p style="color: #64748B; margin: 0; font-weight: 600; font-size: 13px;">ТОН РОЗМОВИ</p>
+                        <span style="background: #F1F5F9; color: #334155; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">Soft: {soft}/8</span>
+                    </div>
+                    <p style="margin: 0; color: #334155; font-size: 14px; line-height: 1.5; font-style: italic;">"{tone}"</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # 🟢 НОВИЙ ЖОВТИЙ БЛОК: РЕЗУЛЬТАТ РОЗМОВИ
+        res_title = row.get('Результат_Розмови_Заголовок', row.get('Результат_Розмови', 'Не визначено'))
+        res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
+        
+        st.markdown(f"""
+        <div style="background-color: #FEFCE8; border: 1px solid #FEF08A; border-radius: 12px; padding: 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <div style="background-color: #FEF08A; color: #B45309; width: 42px; height: 42px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 22px; font-weight: bold; flex-shrink: 0;">
+                ?
+            </div>
+            <div>
+                <h4 style="margin: 0 0 8px 0; color: #0F172A; font-size: 18px;">Результат розмови: {res_title}</h4>
+                <p style="margin: 0; color: #475569; font-size: 15px; line-height: 1.5;">{res_desc}</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 🟢 НИЖНІЙ БЛОК: ЗАПЕРЕЧЕННЯ ТА СТОРОНИ
+        mid1, mid2 = st.columns([1, 2])
+        with mid1:
             with st.container(border=True):
                 st.write("**🛡 Робота з запереченнями**")
                 if row.get("Заперечення_Були", "Ні") == "Так":
                     obj_score = row.get('Робота_з_запереченнями_Бал', 0)
-                    st.markdown(f"<div style='color: {'#16A34A' if obj_score==2 else '#DC2626'}; font-weight: bold;'>Оцінка відпрацювання: {obj_score}/2</div>", unsafe_allow_html=True)
-                    st.write(f"_{row.get('Заперечення_Деталі', 'Деталі відсутні')}_")
+                    st.markdown(f"<div style='color: {'#16A34A' if obj_score==2 else '#DC2626'}; font-weight: bold; margin-bottom: 8px;'>Оцінка відпрацювання: {obj_score}/2</div>", unsafe_allow_html=True)
+                    st.write(f"<span style='font-size: 14px;'>{row.get('Заперечення_Деталі', 'Деталі відсутні')}</span>", unsafe_allow_html=True)
                 else:
                     st.success("✅ Заперечень не було")
 
-        with c2:
+        with mid2:
             sc1, sc2 = st.columns(2)
             with sc1:
                 st.write("👍 **Сильні сторони**")
                 items = str(row.get('Сильні_Сторони', '')).split('\n')
                 has_items = False
                 for item in items:
-                    clean_item = item.strip().replace("- ", "").replace("* ", "")
-                    if clean_item and clean_item.lower() not in ["немає", "ні", "-"]:
-                        st.markdown(f"<div class='check-item'>✓ {clean_item}</div>", unsafe_allow_html=True)
+                    clean = item.strip().replace("- ", "").replace("* ", "")
+                    if clean and clean.lower() not in ["немає", "ні", "-"]:
+                        st.markdown(f"<div class='check-item'>✓ {clean}</div>", unsafe_allow_html=True)
                         has_items = True
                 if not has_items: st.info("Не виявлено")
             
@@ -275,9 +376,9 @@ with tab_history:
                 items = str(row.get('Слабкі_Сторони', '')).split('\n')
                 has_items = False
                 for item in items:
-                    clean_item = item.strip().replace("- ", "").replace("* ", "")
-                    if clean_item and clean_item.lower() not in ["немає", "ні", "-"]:
-                        st.markdown(f"<div class='cross-item'>✕ {clean_item}</div>", unsafe_allow_html=True)
+                    clean = item.strip().replace("- ", "").replace("* ", "")
+                    if clean and clean.lower() not in ["немає", "ні", "-"]:
+                        st.markdown(f"<div class='cross-item'>✕ {clean}</div>", unsafe_allow_html=True)
                         has_items = True
                 if not has_items: st.success("Не виявлено")
 
@@ -289,7 +390,7 @@ with tab_history:
             st.error(f"💸 **Втрачений прибуток з цього ліда:** {lost:,.0f} ₴ (Причина: {row.get('ROOT_PROBLEM')})")
 
 # ==========================================
-# ПАНЕЛЬ 3: ТРЕНДИ (ДИНАМІКА)
+# ПАНЕЛЬ 4: ТРЕНДИ (ДИНАМІКА)
 # ==========================================
 with tab_trends:
     st.markdown("### 📈 Динаміка навичок у часі")
@@ -322,7 +423,7 @@ with tab_trends:
         st.info("Потрібно більше даних з датами для відображення трендів.")
 
 # ==========================================
-# ПАНЕЛЬ 4: COACHING (МАТРИЦЯ НАВИЧОК)
+# ПАНЕЛЬ 5: COACHING (МАТРИЦЯ НАВИЧОК)
 # ==========================================
 with tab_coach:
     st.markdown("### 🎓 Детальна матриця навичок")

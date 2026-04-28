@@ -167,6 +167,39 @@ with tab_analytics:
         
         st.plotly_chart(fig_conv, use_container_width=True)
 
+    # 🟢 ПОВЕРНУТА ТАБЛИЦЯ ПОКАЗНИКІВ МЕНЕДЖЕРІВ
+    st.markdown("---")
+    st.markdown("### 👤 Показники менеджерів")
+
+    if 'Менеджер' in df_filtered.columns and 'Hard_Бал' in df_filtered.columns and 'ROOT_PROBLEM' in df_filtered.columns:
+        
+        # Створюємо копію для аналітики, щоб не зіпсувати основний датафрейм
+        df_stats = df_filtered.copy()
+        df_stats['Hard_Бал'] = pd.to_numeric(df_stats['Hard_Бал'], errors='coerce').fillna(0)
+
+        mgr_stats = df_stats.groupby("Менеджер").agg(
+            Кількість_дзвінків=('Дзвінок', 'count'),
+            Середній_Хард=('Hard_Бал', 'mean'),
+            Найвищий_Хард=('Hard_Бал', 'max'),
+            Продажів_шт=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum()),
+            Відмов_шт=('ROOT_PROBLEM', lambda x: (x != 'Немає').sum())
+        ).reset_index()
+
+        mgr_stats = mgr_stats.rename(columns={'Менеджер': 'Прізвище'})
+        mgr_stats['Конверсія_%'] = (mgr_stats['Продажів_шт'] / mgr_stats['Кількість_дзвінків'] * 100).round(1)
+
+        styled_mgr = mgr_stats.style.format({
+            'Середній_Хард': '{:.1f}',
+            'Найвищий_Хард': '{:.0f}',
+            'Конверсія_%': '{:.1f}%'
+        })\
+        .set_properties(subset=['Продажів_шт'], **{'font-weight': 'bold'})\
+        .set_properties(subset=['Відмов_шт'], **{'font-weight': 'bold', 'color': '#DC2626'})\
+        .background_gradient(cmap='Greens', subset=['Конверсія_%'])
+
+        st.dataframe(styled_mgr, use_container_width=True, hide_index=True)
+    else:
+        st.warning("Недостатньо колонок для побудови статистики менеджерів.")
 
 # ==========================================
 # ПАНЕЛЬ 2: CEO (Гроші та Ефективність)
@@ -255,14 +288,12 @@ with tab_history:
     st.markdown("### 🎧 Історія дзвінків")
     st.write("Виділіть рядок у таблиці нижче, щоб переглянути детальний аналіз.")
     
-    # Визначаємо, яку колонку показати в прев'ю результату
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_filtered.columns else "Результат_Розмови"
     
     cols_to_list = ["Дата", "Менеджер", "Дзвінок", res_col, "Hard_Бал", "Готовність"]
     cols_to_list = [c for c in cols_to_list if c in df_filtered.columns]
     
     try:
-        # Інтерактивна таблиця (запрацює після 'pip install --upgrade streamlit')
         event = st.dataframe(
             df_filtered[cols_to_list],
             use_container_width=True,
@@ -272,7 +303,6 @@ with tab_history:
         )
         selected_indices = event.selection.rows
     except:
-        # Резервний варіант для старих версій Streamlit
         st.warning("⚠️ Оновіть Streamlit (`pip install --upgrade streamlit`), щоб таблиця стала клікабельною. Поки що використовуємо класичний вибір:")
         display_names = df_filtered.apply(lambda r: f"{r.get('Дата','')} | {r.get('Менеджер','')} | {r['Дзвінок']}", axis=1).tolist()
         file_mapping = dict(zip(display_names, df_filtered['Дзвінок']))
@@ -288,7 +318,6 @@ with tab_history:
         st.markdown("---")
         st.subheader(f"📄 Картка розмови: {row.get('Менеджер', 'Невідомо')}")
         
-        # 🟢 ВЕРХНІЙ БЛОК: ТРИ КАРТКИ
         top1, top2, top3 = st.columns(3)
         
         with top1:
@@ -329,7 +358,6 @@ with tab_history:
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 🟢 НОВИЙ ЖОВТИЙ БЛОК: РЕЗУЛЬТАТ РОЗМОВИ
         res_title = row.get('Результат_Розмови_Заголовок', row.get('Результат_Розмови', 'Не визначено'))
         res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
         
@@ -345,7 +373,6 @@ with tab_history:
         </div>
         """, unsafe_allow_html=True)
 
-        # 🟢 НИЖНІЙ БЛОК: ЗАПЕРЕЧЕННЯ ТА СТОРОНИ
         mid1, mid2 = st.columns([1, 2])
         with mid1:
             with st.container(border=True):

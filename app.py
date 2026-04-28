@@ -133,40 +133,39 @@ with tab_analytics:
             st.info("Немає даних про результати розмов.")
             
     with col_d2:
-        # Діаграма конверсії
-        if 'ROOT_PROBLEM' in df_filtered.columns:
-            conv_data = df_filtered['ROOT_PROBLEM'].apply(lambda x: 'Продаж/Успіх' if x == 'Немає' else 'Втрачено лід').value_counts().reset_index()
-            conv_data.columns = ['Статус', 'Кількість']
-            fig_conv = px.bar(conv_data, x='Статус', y='Кількість', text='Кількість',
-                              title="Конверсія в успішну дію",
-                              color='Статус', color_discrete_map={'Продаж/Успіх': '#16A34A', 'Втрачено лід': '#DC2626'})
-            st.plotly_chart(fig_conv, use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("### 👤 Показники менеджерів")
-
-    if 'Менеджер' in df_filtered.columns and 'Hard_Бал' in df_filtered.columns and 'ROOT_PROBLEM' in df_filtered.columns:
-        mgr_stats = df_filtered.groupby("Менеджер").agg(
-            Кількість_дзвінків=('Дзвінок', 'count'),
-            Середній_Хард=('Hard_Бал', 'mean'),
-            Найвищий_Хард=('Hard_Бал', 'max'),
-            Продажів_шт=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum()),
-            Відмов_шт=('ROOT_PROBLEM', lambda x: (x != 'Немає').sum())
-        ).reset_index()
-
-        mgr_stats = mgr_stats.rename(columns={'Менеджер': 'Прізвище'})
-        mgr_stats['Конверсія_%'] = (mgr_stats['Продажів_шт'] / mgr_stats['Кількість_дзвінків'] * 100).round(1)
-
-        styled_mgr = mgr_stats.style.format({
-            'Середній_Хард': '{:.1f}',
-            'Найвищий_Хард': '{:.0f}',
-            'Конверсія_%': '{:.1f}%'
-        })\
-        .set_properties(subset=['Продажів_шт'], **{'font-weight': 'bold'})\
-        .set_properties(subset=['Відмов_шт'], **{'font-weight': 'bold', 'color': '#DC2626'})\
-        .background_gradient(cmap='Greens', subset=['Конверсія_%'])
-
-        st.dataframe(styled_mgr, use_container_width=True, hide_index=True)
+        # Розрахунок даних для воронки конверсії
+        total_calls = len(df_filtered)
+        # Рахуємо "Так" у колонці наступного кроку
+        success_steps = (df_filtered['Зафіксував_Наступний_Крок'] == 'Так').sum() if 'Зафіксував_Наступний_Крок' in df_filtered.columns else 0
+        # Рахуємо закриті продажі
+        closed_sales = (df_filtered['ROOT_PROBLEM'] == 'Немає').sum()
+        
+        # Розрахунок % реальної конверсії
+        conv_rate = (closed_sales / total_calls * 100) if total_calls > 0 else 0
+        
+        # Заголовок та підзаголовок
+        st.markdown("### 🎯 Конверсія у продаж")
+        st.markdown(f"<p style='color: #64748B; font-size: 15px; margin-top: -15px;'>Реальна конверсія: {conv_rate:.1f}% дзвінків завершились продажем</p>", unsafe_allow_html=True)
+        
+        # Створення даних для графіка
+        conv_plot_df = pd.DataFrame({
+            'Етап': ['Всі дзвінки', 'Успішні угоди', 'Продажів закрито'],
+            'Кількість': [total_calls, success_steps, closed_sales],
+            'Колір': ['#94A3B8', '#3B82F6', '#10B981'] # Сірий -> Синій -> Зелений
+        })
+        
+        fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість',
+                          color='Етап', color_discrete_map={
+                              'Всі дзвінки': '#94A3B8', 
+                              'Успішні угоди': '#3B82F6', 
+                              'Продажів закрито': '#10B981'
+                          })
+        
+        fig_conv.update_layout(showlegend=False, height=350, margin=dict(t=10, b=0, l=0, r=0),
+                               xaxis_title=None, yaxis_title=None)
+        fig_conv.update_traces(textposition='outside', textfont_size=14, textfont_color='#1E293B')
+        
+        st.plotly_chart(fig_conv, use_container_width=True)
 
 
 # ==========================================

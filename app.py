@@ -322,15 +322,37 @@ with tab_history:
         
         with top1:
             score = int(row.get('Hard_Бал', 0))
-            color = '#16A34A' if score >= 10 else '#F59E0B' if score >= 6 else '#DC2626'
-            bg_color = '#BBF7D0' if score >= 10 else '#FDE68A' if score >= 6 else '#FECACA'
-            text = 'Відмінно' if score >= 10 else 'Задовільно' if score >= 6 else 'Потребує уваги'
+            # Логіка кольорів балів
+            if score >= 9:
+                score_color = "#16A34A" # Зелений
+                score_text = "Відмінно"
+                bg_color = "#BBF7D0"
+            elif score >= 6:
+                score_color = "#F59E0B" # Жовтий
+                score_text = "Задовільно"
+                bg_color = "#FDE68A"
+            elif score >= 3:
+                score_color = "#EF4444" # Червоний
+                score_text = "Потребує уваги"
+                bg_color = "#FECACA"
+            else:
+                score_color = "#991B1B" # Темно-червоний
+                score_text = "Критично"
+                bg_color = "#FCA5A5"
+
+            # Математика для кружечка
+            deg = (score / 12) * 360
             
             st.markdown(f"""
-                <div class="card" style="height: 100%; text-align: center;">
-                    <p style="color: #64748B; margin-bottom: 5px; font-weight: 600; font-size: 13px;">HARD SKILLS (ОЦІНКА)</p>
-                    <h1 style="font-size: 48px; color: #0F172A; margin: 5px 0;">{score}<span style="font-size: 18px; color: #64748B;">/12</span></h1>
-                    <div style="background: {bg_color}; color: {color}; border-radius: 20px; font-weight: bold; display: inline-block; padding: 4px 12px; font-size: 13px;">{text}</div>
+                <div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p style="color: #64748B; margin-bottom: 10px; font-weight: 600; font-size: 13px;">HARD SKILLS (ОЦІНКА)</p>
+                    <div style="width: 90px; height: 90px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin-bottom: 10px;">
+                        <div style="width: 72px; height: 72px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <span style="font-size: 26px; font-weight: 800; color: #0F172A; line-height: 1;">{score}</span>
+                            <span style="font-size: 12px; color: #64748B; font-weight: 600;">з 12</span>
+                        </div>
+                    </div>
+                    <div style="background: {bg_color}; color: {score_color}; border-radius: 20px; font-weight: bold; display: inline-block; padding: 4px 12px; font-size: 13px;">{score_text}</div>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -358,13 +380,35 @@ with tab_history:
 
         st.markdown("<br>", unsafe_allow_html=True)
         
+        # 🟢 ДИНАМІЧНИЙ БЛОК РЕЗУЛЬТАТУ РОЗМОВИ
         res_title = row.get('Результат_Розмови_Заголовок', row.get('Результат_Розмови', 'Не визначено'))
         res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
+        root_prob = row.get('ROOT_PROBLEM', 'Немає')
+        
+        # Логіка кольорів результату
+        if root_prob == 'Немає': # Успіх / Продаж
+            res_bg = "#F0FDF4"
+            res_border = "#BBF7D0"
+            res_icon_bg = "#DCFCE7"
+            res_icon_color = "#16A34A"
+            res_icon = "✓"
+        elif root_prob in ['Менеджер', 'Клієнт']: # Критична проблема
+            res_bg = "#FEF2F2"
+            res_border = "#FECACA"
+            res_icon_bg = "#FEE2E2"
+            res_icon_color = "#DC2626"
+            res_icon = "!"
+        else: # Подумає, Ціна, Наявність тощо (Нейтрально)
+            res_bg = "#FEFCE8"
+            res_border = "#FEF08A"
+            res_icon_bg = "#FEF08A"
+            res_icon_color = "#B45309"
+            res_icon = "?"
         
         st.markdown(f"""
-        <div style="background-color: #FEFCE8; border: 1px solid #FEF08A; border-radius: 12px; padding: 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-            <div style="background-color: #FEF08A; color: #B45309; width: 42px; height: 42px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 22px; font-weight: bold; flex-shrink: 0;">
-                ?
+        <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 42px; height: 42px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 22px; font-weight: bold; flex-shrink: 0;">
+                {res_icon}
             </div>
             <div>
                 <h4 style="margin: 0 0 8px 0; color: #0F172A; font-size: 18px;">Результат розмови: {res_title}</h4>

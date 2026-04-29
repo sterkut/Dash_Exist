@@ -176,7 +176,7 @@ with tab_history:
         cols_to_show = ["Дата", "Дзвінок", res_col_p, "Hard_Бал", "Готовність"]
         cols_to_show = [c for c in cols_to_show if c in df_personal.columns]
         
-        event = st.dataframe(df_personal[cols_to_show], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row")
+        event = st.dataframe(df_personal[cols_to_show], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", height=250)
         
         selected_indices = event.selection.rows
         if selected_indices:

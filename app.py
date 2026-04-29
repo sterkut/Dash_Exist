@@ -110,7 +110,83 @@ df_filtered['Втрачено_Крос'] = df_filtered.apply(lambda x: (avg_cros
 df_filtered['Втрачено_грн'] = df_filtered['Втрачено_Головна'] + df_filtered['Втрачено_Крос']
 
 # --- 4. ВКЛАДКИ ---
-tab_analytics, tab_ceo, tab_history, tab_trends, tab_coach = st.tabs(["🎯 Дашборд Ефективності", "💰 Фінанси (CEO)", "🎧 Історія та розбір", "📈 Тренди", "🎓 Матриця навичок"])
+# Додаємо вкладку Головна на перше місце
+tab_home, tab_analytics, tab_ceo, tab_history, tab_trends, tab_coach = st.tabs([
+    "🏠 Головна", "🎯 Дашборд Ефективності", "💰 Фінанси (CEO)", "🎧 Історія та розбір", "📈 Тренди", "🎓 Матриця навичок"
+])
+
+# ==========================================
+# ПАНЕЛЬ 0: ГОЛОВНА (ОГЛЯД)
+# ==========================================
+with tab_home:
+    # 1. Розрахунок метрик
+    total_calls = len(df_filtered)
+    # Силоміць перетворюємо в числа для точності
+    df_filtered['Hard_Бал'] = pd.to_numeric(df_filtered['Hard_Бал'], errors='coerce').fillna(0)
+    
+    avg_hard = df_filtered['Hard_Бал'].mean() if total_calls > 0 else 0
+    closed_sales = (df_filtered['ROOT_PROBLEM'] == 'Немає').sum()
+    conversion = (closed_sales / total_calls * 100) if total_calls > 0 else 0
+
+    # Візуалізація метрик (верхній ряд)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("📞 Всього дзвінків", f"{total_calls}")
+    m2.metric("⭐ Сер. Хард бал", f"{avg_hard:.1f}/12")
+    m3.metric("🎯 Конверсія", f"{conversion:.1f}%")
+    m4.metric("💰 Продажів закрито", f"{closed_sales}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if total_calls > 0:
+        # Агрегуємо статистику по менеджерах
+        mgr_summary = df_filtered.groupby("Менеджер").agg(
+            Дзвінків=('Дзвінок', 'count'),
+            Продажів=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum()),
+            Сер_Хард=('Hard_Бал', 'mean')
+        ).reset_index()
+
+        # --- Твій запит: Лінія лідера за якістю ---
+        best_quality_mgr = mgr_summary.sort_values(by='Сер_Хард', ascending=False).iloc[0]
+        st.info(f"✨ Менеджер **{best_quality_mgr['Менеджер']}** зараз лідер за якістю обслуговування (сер. бал: {best_quality_mgr['Сер_Хард']:.1f})")
+        # ------------------------------------------
+
+        col_top, col_attention = st.columns(2)
+
+        with col_top:
+            st.markdown("### 🏆 Найкращі менеджери")
+            # ТОП-3 за продажами
+            top_mgrs = mgr_summary.sort_values(by=['Продажів', 'Сер_Хард'], ascending=False).head(3)
+            for _, mgr in top_mgrs.iterrows():
+                st.markdown(f"""
+                    <div style='background: #F0FDF4; padding: 15px; border-radius: 12px; border-left: 5px solid #22C55E; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
+                        <div style='display: flex; justify-content: space-between; align-items: center;'>
+                            <span style='font-weight: 800; color: #166534; font-size: 17px;'>{mgr['Менеджер']}</span>
+                            <span style='background: #DCFCE7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Хард: {mgr['Сер_Хард']:.1f}</span>
+                        </div>
+                        <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
+                            <b>{mgr['Продажів']}</b> продажів з <b>{mgr['Дзвінків']}</b> дзвінків
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+        with col_attention:
+            st.markdown("### ⚠️ Потребують уваги")
+            # ТОП-3 з кінця за якістю
+            low_mgrs = mgr_summary.sort_values(by='Сер_Хард', ascending=True).head(3)
+            for _, mgr in low_mgrs.iterrows():
+                st.markdown(f"""
+                    <div style='background: #FFF7ED; padding: 15px; border-radius: 12px; border-left: 5px solid #F97316; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
+                        <div style='display: flex; justify-content: space-between; align-items: center;'>
+                            <span style='font-weight: 800; color: #9A3412; font-size: 17px;'>{mgr['Менеджер']}</span>
+                            <span style='background: #FFEDD5; color: #9A3412; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Хард: {mgr['Сер_Хард']:.1f}</span>
+                        </div>
+                        <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
+                            Потребує аналізу <b>{mgr['Дзвінків']}</b> розмов | Продажів: <b>{mgr['Продажів']}</b>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("Виберіть дані у фільтрах зліва, щоб побачити огляд.")
 
 # ==========================================
 # ПАНЕЛЬ 1: АНАЛІТИКА ТА ЕФЕКТИВНІСТЬ

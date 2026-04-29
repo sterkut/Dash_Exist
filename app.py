@@ -465,15 +465,30 @@ with tab_history:
 # ПАНЕЛЬ 4: ТРЕНДИ (ДИНАМІКА)
 # ==========================================
 with tab_trends:
-    st.markdown("### 📈 Динаміка навичок у часі")
+    st.markdown("### 📈 Динаміка навичок та конверсії у часі")
     
     if "Дата" in df_filtered.columns and not df_filtered.empty:
+        # Рахуємо середні бали та кількість дзвінків
         trend_df = df_filtered.groupby(['Дата', 'Менеджер']).agg({
             'Крос_сел': 'mean',
             'Екосистема': 'mean',
-            'Hard_Бал': 'mean'
+            'Hard_Бал': 'mean',
+            'Дзвінок': 'count'
         }).reset_index()
         
+        # Рахуємо успішні продажі та конверсію
+        sales_df = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає'].groupby(['Дата', 'Менеджер']).size().reset_index(name='Продажів')
+        trend_df = trend_df.merge(sales_df, on=['Дата', 'Менеджер'], how='left').fillna({'Продажів': 0})
+        trend_df['Конверсія_%'] = (trend_df['Продажів'] / trend_df['Дзвінок'] * 100).round(1)
+        
+        # 1. Графік конверсії (НОВИЙ)
+        fig_conv_trend = px.line(trend_df, x='Дата', y='Конверсія_%', color='Менеджер', markers=True, 
+                                 title="Динаміка конверсії у продаж (%)", color_discrete_sequence=px.colors.qualitative.Safe)
+        st.plotly_chart(fig_conv_trend, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # 2. Графіки крос-селу та екосистеми
         col_t1, col_t2 = st.columns(2)
         with col_t1:
             fig_cross = px.line(trend_df, x='Дата', y='Крос_сел', color='Менеджер', markers=True,
@@ -488,6 +503,8 @@ with tab_trends:
             st.plotly_chart(fig_eco, use_container_width=True)
             
         st.markdown("---")
+        
+        # 3. Графік загального Hard Балу
         fig_total = px.area(trend_df, x='Дата', y='Hard_Бал', color='Менеджер', 
                            title="Загальний тренд якості розмов (Hard Бал)", color_discrete_sequence=px.colors.qualitative.Bold)
         st.plotly_chart(fig_total, use_container_width=True)

@@ -271,10 +271,27 @@ with tab_history:
 # ВКЛАДКА 3: МОЯ ДИНАМІКА
 # ==========================================
 with tab_trends:
-    st.markdown("### 📈 Твоя динаміка розвитку")
+    st.markdown("### 📈 Твоя динаміка розвитку та конверсії")
     if not df_personal.empty and "Дата" in df_personal.columns:
-        trend_data = df_personal.groupby("Дата").agg({"Hard_Бал": "mean", "Крос_сел": "mean"}).reset_index()
-        fig_personal = px.line(trend_data, x="Дата", y="Hard_Бал", markers=True, title="Мій прогрес (Середній Hard Бал)")
-        st.plotly_chart(fig_personal, use_container_width=True)
+        # Рахуємо середні бали та кількість дзвінків
+        trend_data = df_personal.groupby("Дата").agg({
+            "Hard_Бал": "mean", 
+            "Крос_сел": "mean",
+            "Дзвінок": "count"
+        }).reset_index()
+        
+        # Рахуємо конверсію
+        sales_data = df_personal[df_personal['ROOT_PROBLEM'] == 'Немає'].groupby("Дата").size().reset_index(name='Продажів')
+        trend_data = trend_data.merge(sales_data, on="Дата", how="left").fillna({'Продажів': 0})
+        trend_data['Конверсія_%'] = (trend_data['Продажів'] / trend_data['Дзвінок'] * 100).round(1)
+        
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            fig_conv_personal = px.line(trend_data, x="Дата", y="Конверсія_%", markers=True, title="Моя конверсія у продаж (%)", color_discrete_sequence=['#10B981'])
+            st.plotly_chart(fig_conv_personal, use_container_width=True)
+            
+        with col_t2:
+            fig_personal = px.line(trend_data, x="Дата", y="Hard_Бал", markers=True, title="Мій прогрес (Середній Hard Бал)", color_discrete_sequence=['#3B82F6'])
+            st.plotly_chart(fig_personal, use_container_width=True)
     else:
-        st.info("Потрібно більше закритих днів з даними, щоб побудувати графік прогресу.")
+        st.info("Потрібно більше закритих днів з даними, щоб побудувати графіки.")

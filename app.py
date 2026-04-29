@@ -8,6 +8,7 @@ st.set_page_config(page_title="allogarage.ai | EXIST.UA", layout="wide", initial
 
 st.markdown("""
 <style>
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 95%; }
     .stApp { background-color: #F8F9FA; color: #1E293B; }
     h1, h2, h3 { font-weight: 800; color: #0F172A; }
     [data-testid="stMetricValue"] { font-size: 2.2rem; font-weight: 800; color: #DC2626; }
@@ -299,7 +300,8 @@ with tab_history:
             use_container_width=True,
             hide_index=True,
             on_select="rerun",
-            selection_mode="single-row"
+            selection_mode="single-row",
+            height=250
         )
         selected_indices = event.selection.rows
     except:

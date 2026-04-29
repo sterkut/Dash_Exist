@@ -161,7 +161,7 @@ with tab_home:
                     <div style='background: #F0FDF4; padding: 15px; border-radius: 12px; border-left: 5px solid #22C55E; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
                         <div style='display: flex; justify-content: space-between; align-items: center;'>
                             <span style='font-weight: 800; color: #166534; font-size: 17px;'>{mgr['Менеджер']}</span>
-                            <span style='background: #DCFCE7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Хард: {mgr['Сер_Хард']:.1f}</span>
+                            <span style='background: #DCFCE7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
                         </div>
                         <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
                             <b>{mgr['Продажів']}</b> продажів з <b>{mgr['Дзвінків']}</b> дзвінків
@@ -178,7 +178,7 @@ with tab_home:
                     <div style='background: #FFF7ED; padding: 15px; border-radius: 12px; border-left: 5px solid #F97316; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
                         <div style='display: flex; justify-content: space-between; align-items: center;'>
                             <span style='font-weight: 800; color: #9A3412; font-size: 17px;'>{mgr['Менеджер']}</span>
-                            <span style='background: #FFEDD5; color: #9A3412; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Хард: {mgr['Сер_Хард']:.1f}</span>
+                            <span style='background: #FFEDD5; color: #9A3412; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
                         </div>
                         <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
                             Потребує аналізу <b>{mgr['Дзвінків']}</b> розмов | Продажів: <b>{mgr['Продажів']}</b>

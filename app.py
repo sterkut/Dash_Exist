@@ -131,7 +131,7 @@ with tab_home:
     # Візуалізація метрик (верхній ряд)
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("📞 Всього дзвінків", f"{total_calls}")
-    m2.metric("⭐ Сер. Хард бал", f"{avg_hard:.1f}/12")
+    m2.metric("⭐ Сер. Бал", f"{avg_hard:.1f}/12")
     m3.metric("🎯 Конверсія", f"{conversion:.1f}%")
     m4.metric("💰 Продажів закрито", f"{closed_sales}")
 

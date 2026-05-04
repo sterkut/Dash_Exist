@@ -241,7 +241,7 @@ with tab_history:
                 </div>""", unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            
+
             # --- Оцінка роботи менеджера (Резюме) ---
             manager_summary = row.get('Оцінка_Роботи_Менеджера', '')
             if pd.notna(manager_summary) and str(manager_summary).strip() != "":
@@ -253,26 +253,30 @@ with tab_history:
             res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
             root_prob = row.get('ROOT_PROBLEM', 'Немає')
             
-            # Логіка кольорів результату з урахуванням причин
+            # Логіка кольорів результату з урахуванням причин (Збільшені шрифти)
             if root_prob == 'Немає': 
                 res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#F0FDF4", "#BBF7D0", "#DCFCE7", "#16A34A", "✓"
                 reason_html = ""
             elif "Відмова" in str(res_title) or root_prob in ['Менеджер', 'Ціна', 'Наявність', 'Термін поставки', 'Процес']: 
                 res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEF2F2", "#FECACA", "#FEE2E2", "#DC2626", "!"
-                reason_html = f"<hr style='margin: 10px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 14px; font-weight: bold;'>Причина відмови: {root_prob}</p>"
+                reason_html = f"<hr style='margin: 12px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 16px; font-weight: bold;'>Причина відмови: {root_prob}</p>"
             else: 
                 res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEFCE8", "#FEF08A", "#FEF08A", "#B45309", "?"
                 if root_prob and root_prob != 'Немає':
-                    reason_html = f"<hr style='margin: 10px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 14px; font-weight: bold;'>Статус: {root_prob}</p>"
+                    reason_html = f"<hr style='margin: 12px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 16px; font-weight: bold;'>Статус: {root_prob}</p>"
                 else:
                     reason_html = ""
             
             st.markdown(f"""
-            <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 42px; height: 42px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 22px; font-weight: bold; flex-shrink: 0;">{res_icon}</div>
+            <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 24px; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 26px; font-weight: bold; flex-shrink: 0;">
+                    {res_icon}
+                </div>
                 <div style="width: 100%;">
-                    <h4 style="margin: 0 0 8px 0; color: #0F172A; font-size: 18px;">Результат розмови: {res_title}</h4>
-                    <p style="margin: 0; color: #475569; font-size: 15px; line-height: 1.5; margin-bottom: 5px;">{res_desc}</p>
+                    <h4 style="margin: 0 0 10px 0; color: #0F172A; font-size: 22px; font-weight: 600;">
+                        Результат розмови: <span style="color: {res_icon_color}; font-weight: 900;">{res_title}</span>
+                    </h4>
+                    <p style="margin: 0; color: #475569; font-size: 17px; line-height: 1.6; margin-bottom: 8px;">{res_desc}</p>
                     {reason_html}
                 </div>
             </div>

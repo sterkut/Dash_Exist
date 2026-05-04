@@ -469,7 +469,9 @@ with tab_history:
                 {res_icon}
             </div>
             <div style="width: 100%;">
-                <h4 style="margin: 0 0 10px 0; color: #0F172A; font-size: 22px;">Результат розмови: {res_title}</h4>
+                <h4 style="margin: 0 0 10px 0; color: #0F172A; font-size: 22px; font-weight: 600;">
+                    Результат розмови: <span style="color: {res_icon_color}; font-weight: 900;">{res_title}</span>
+                </h4>
                 <p style="margin: 0; color: #475569; font-size: 17px; line-height: 1.6; margin-bottom: 8px;">{res_desc}</p>
                 {reason_html}
             </div>

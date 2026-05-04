@@ -78,7 +78,13 @@ if not st.session_state["authenticated"]:
         st.markdown("<div class='card' style='text-align: center;'>", unsafe_allow_html=True)
         
         # 1. Виправляємо картинку (логотип) через HTML
-        st.markdown("<img src='https://www.exist.ua/assets/images/logo.svg' width='200' style='margin-bottom: 15px;'>", unsafe_allow_html=True)
+        # Красивий текстовий логотип замість картинки
+        st.markdown("""
+            <div style='margin-bottom: 15px;'>
+                <span style='font-size: 42px; font-weight: 900; color: #1E3A8A; letter-spacing: 1px;'>EXIST</span>
+                <span style='font-size: 42px; font-weight: 900; color: #F59E0B;'>.UA</span>
+            </div>
+        """, unsafe_allow_html=True)
         
         st.subheader("Вхід для менеджерів")
         

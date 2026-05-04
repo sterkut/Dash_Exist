@@ -110,7 +110,6 @@ df_filtered['Втрачено_Крос'] = df_filtered.apply(lambda x: (avg_cros
 df_filtered['Втрачено_грн'] = df_filtered['Втрачено_Головна'] + df_filtered['Втрачено_Крос']
 
 # --- 4. ВКЛАДКИ ---
-# Додаємо вкладку Головна на перше місце
 tab_home, tab_analytics, tab_ceo, tab_history, tab_trends, tab_coach = st.tabs([
     "🏠 Головна", "🎯 Дашборд Ефективності", "💰 Фінанси (CEO)", "🎧 Історія та розбір", "📈 Тренди", "🎓 Матриця навичок"
 ])
@@ -119,16 +118,13 @@ tab_home, tab_analytics, tab_ceo, tab_history, tab_trends, tab_coach = st.tabs([
 # ПАНЕЛЬ 0: ГОЛОВНА (ОГЛЯД)
 # ==========================================
 with tab_home:
-    # 1. Розрахунок метрик
     total_calls = len(df_filtered)
-    # Силоміць перетворюємо в числа для точності
     df_filtered['Hard_Бал'] = pd.to_numeric(df_filtered['Hard_Бал'], errors='coerce').fillna(0)
     
     avg_hard = df_filtered['Hard_Бал'].mean() if total_calls > 0 else 0
     closed_sales = (df_filtered['ROOT_PROBLEM'] == 'Немає').sum()
     conversion = (closed_sales / total_calls * 100) if total_calls > 0 else 0
 
-    # Візуалізація метрик (верхній ряд)
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("📞 Всього дзвінків", f"{total_calls}")
     m2.metric("⭐ Сер. Бал", f"{avg_hard:.1f}/12")
@@ -138,24 +134,22 @@ with tab_home:
     st.markdown("<br>", unsafe_allow_html=True)
 
     if total_calls > 0:
-        # Агрегуємо статистику по менеджерах
         mgr_summary = df_filtered.groupby("Менеджер").agg(
             Дзвінків=('Дзвінок', 'count'),
             Продажів=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum()),
             Сер_Хард=('Hard_Бал', 'mean')
         ).reset_index()
 
-        # --- Твій запит: Лінія лідера за якістю ---
         best_quality_mgr = mgr_summary.sort_values(by='Сер_Хард', ascending=False).iloc[0]
         st.info(f"✨ Менеджер **{best_quality_mgr['Менеджер']}** зараз лідер за якістю обслуговування (сер. бал: {best_quality_mgr['Сер_Хард']:.1f})")
-        # ------------------------------------------
 
         col_top, col_attention = st.columns(2)
 
         with col_top:
             st.markdown("### 🏆 Найкращі менеджери")
-            # ТОП-3 за продажами
             top_mgrs = mgr_summary.sort_values(by=['Продажів', 'Сер_Хард'], ascending=False).head(3)
+            top_mgr_names = top_mgrs['Менеджер'].tolist() 
+            
             for _, mgr in top_mgrs.iterrows():
                 st.markdown(f"""
                     <div style='background: #F0FDF4; padding: 15px; border-radius: 12px; border-left: 5px solid #22C55E; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
@@ -171,20 +165,29 @@ with tab_home:
 
         with col_attention:
             st.markdown("### ⚠️ Потребують уваги")
-            # ТОП-3 з кінця за якістю
-            low_mgrs = mgr_summary.sort_values(by='Сер_Хард', ascending=True).head(3)
-            for _, mgr in low_mgrs.iterrows():
+            low_mgrs = mgr_summary[(mgr_summary['Сер_Хард'] < 4.0) & (~mgr_summary['Менеджер'].isin(top_mgr_names))].sort_values(by='Сер_Хард', ascending=True).head(3)
+            
+            if low_mgrs.empty:
                 st.markdown(f"""
-                    <div style='background: #FFF7ED; padding: 15px; border-radius: 12px; border-left: 5px solid #F97316; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
-                        <div style='display: flex; justify-content: space-between; align-items: center;'>
-                            <span style='font-weight: 800; color: #9A3412; font-size: 17px;'>{mgr['Менеджер']}</span>
-                            <span style='background: #FFEDD5; color: #9A3412; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
-                        </div>
-                        <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
-                            Потребує аналізу <b>{mgr['Дзвінків']}</b> розмов | Продажів: <b>{mgr['Продажів']}</b>
-                        </div>
+                    <div style='background: #F8FAFC; padding: 30px; border-radius: 12px; border: 1px dashed #CBD5E1; text-align: center; margin-bottom: 12px;'>
+                        <div style='font-size: 40px; margin-bottom: 10px;'>😊</div>
+                        <h4 style='color: #0F172A; margin: 0;'>Всі менеджери працюють добре!</h4>
+                        <p style='color: #64748B; margin: 5px 0 0 0; font-size: 14px;'>Немає менеджерів з оцінкою нижче 4.0</p>
                     </div>
                 """, unsafe_allow_html=True)
+            else:
+                for _, mgr in low_mgrs.iterrows():
+                    st.markdown(f"""
+                        <div style='background: #FFF7ED; padding: 15px; border-radius: 12px; border-left: 5px solid #F97316; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
+                            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                                <span style='font-weight: 800; color: #9A3412; font-size: 17px;'>{mgr['Менеджер']}</span>
+                                <span style='background: #FFEDD5; color: #9A3412; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
+                            </div>
+                            <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
+                                Потребує аналізу <b>{mgr['Дзвінків']}</b> розмов | Продажів: <b>{mgr['Продажів']}</b>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
     else:
         st.info("Виберіть дані у фільтрах зліва, щоб побачити огляд.")
 
@@ -197,7 +200,6 @@ with tab_analytics:
     col_d1, col_d2 = st.columns(2)
     
     with col_d1:
-        # Діаграма результатів дзвінків
         res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_filtered.columns else 'Результат_Розмови'
         if res_col in df_filtered.columns:
             res_counts = df_filtered[res_col].value_counts().reset_index()
@@ -210,25 +212,18 @@ with tab_analytics:
             st.info("Немає даних про результати розмов.")
             
     with col_d2:
-        # Розрахунок даних для воронки конверсії
         total_calls = len(df_filtered)
-        # Рахуємо "Так" у колонці наступного кроку
         success_steps = (df_filtered['Зафіксував_Наступний_Крок'] == 'Так').sum() if 'Зафіксував_Наступний_Крок' in df_filtered.columns else 0
-        # Рахуємо закриті продажі
         closed_sales = (df_filtered['ROOT_PROBLEM'] == 'Немає').sum()
-        
-        # Розрахунок % реальної конверсії
         conv_rate = (closed_sales / total_calls * 100) if total_calls > 0 else 0
         
-        # Заголовок та підзаголовок
         st.markdown("### 🎯 Конверсія у продаж")
         st.markdown(f"<p style='color: #64748B; font-size: 15px; margin-top: -15px;'>Реальна конверсія: {conv_rate:.1f}% дзвінків завершились продажем</p>", unsafe_allow_html=True)
         
-        # Створення даних для графіка
         conv_plot_df = pd.DataFrame({
             'Етап': ['Всі дзвінки', 'Успішні угоди', 'Продажів закрито'],
             'Кількість': [total_calls, success_steps, closed_sales],
-            'Колір': ['#94A3B8', '#3B82F6', '#10B981'] # Сірий -> Синій -> Зелений
+            'Колір': ['#94A3B8', '#3B82F6', '#10B981'] 
         })
         
         fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість',
@@ -244,13 +239,10 @@ with tab_analytics:
         
         st.plotly_chart(fig_conv, use_container_width=True)
 
-    # 🟢 ПОВЕРНУТА ТАБЛИЦЯ ПОКАЗНИКІВ МЕНЕДЖЕРІВ
     st.markdown("---")
     st.markdown("### 👤 Показники менеджерів")
 
     if 'Менеджер' in df_filtered.columns and 'Hard_Бал' in df_filtered.columns and 'ROOT_PROBLEM' in df_filtered.columns:
-        
-        # Створюємо копію для аналітики, щоб не зіпсувати основний датафрейм
         df_stats = df_filtered.copy()
         df_stats['Hard_Бал'] = pd.to_numeric(df_stats['Hard_Бал'], errors='coerce').fillna(0)
 
@@ -357,7 +349,6 @@ with tab_ceo:
     else:
         st.success("Втрат не виявлено! Всі угоди успішні.")
 
-
 # ==========================================
 # ПАНЕЛЬ 3: ІСТОРІЯ ТА КАРТКА ДЗВІНКА
 # ==========================================
@@ -400,25 +391,15 @@ with tab_history:
         
         with top1:
             score = int(row.get('Hard_Бал', 0))
-            # Логіка кольорів балів
             if score >= 9:
-                score_color = "#16A34A" # Зелений
-                score_text = "Відмінно"
-                bg_color = "#BBF7D0"
+                score_color, score_text, bg_color = "#16A34A", "Відмінно", "#BBF7D0"
             elif score >= 6:
-                score_color = "#F59E0B" # Жовтий
-                score_text = "Задовільно"
-                bg_color = "#FDE68A"
+                score_color, score_text, bg_color = "#F59E0B", "Задовільно", "#FDE68A"
             elif score >= 3:
-                score_color = "#EF4444" # Червоний
-                score_text = "Потребує уваги"
-                bg_color = "#FECACA"
+                score_color, score_text, bg_color = "#EF4444", "Потребує уваги", "#FECACA"
             else:
-                score_color = "#991B1B" # Темно-червоний
-                score_text = "Критично"
-                bg_color = "#FCA5A5"
+                score_color, score_text, bg_color = "#991B1B", "Критично", "#FCA5A5"
 
-            # Математика для кружечка
             deg = (score / 12) * 360
             
             st.markdown(f"""
@@ -458,30 +439,16 @@ with tab_history:
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 🟢 ДИНАМІЧНИЙ БЛОК РЕЗУЛЬТАТУ РОЗМОВИ
         res_title = row.get('Результат_Розмови_Заголовок', row.get('Результат_Розмови', 'Не визначено'))
         res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
         root_prob = row.get('ROOT_PROBLEM', 'Немає')
         
-        # Логіка кольорів результату
-        if root_prob == 'Немає': # Успіх / Продаж
-            res_bg = "#F0FDF4"
-            res_border = "#BBF7D0"
-            res_icon_bg = "#DCFCE7"
-            res_icon_color = "#16A34A"
-            res_icon = "✓"
-        elif root_prob in ['Менеджер', 'Клієнт']: # Критична проблема
-            res_bg = "#FEF2F2"
-            res_border = "#FECACA"
-            res_icon_bg = "#FEE2E2"
-            res_icon_color = "#DC2626"
-            res_icon = "!"
-        else: # Подумає, Ціна, Наявність тощо (Нейтрально)
-            res_bg = "#FEFCE8"
-            res_border = "#FEF08A"
-            res_icon_bg = "#FEF08A"
-            res_icon_color = "#B45309"
-            res_icon = "?"
+        if root_prob == 'Немає': 
+            res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#F0FDF4", "#BBF7D0", "#DCFCE7", "#16A34A", "✓"
+        elif root_prob in ['Менеджер', 'Клієнт']: 
+            res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEF2F2", "#FECACA", "#FEE2E2", "#DC2626", "!"
+        else: 
+            res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEFCE8", "#FEF08A", "#FEF08A", "#B45309", "?"
         
         st.markdown(f"""
         <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
@@ -541,49 +508,59 @@ with tab_history:
 # ПАНЕЛЬ 4: ТРЕНДИ (ДИНАМІКА)
 # ==========================================
 with tab_trends:
-    st.markdown("### 📈 Динаміка навичок та конверсії у часі")
+    st.markdown("### 📈 Загальна динаміка відділу")
     
     if "Дата" in df_filtered.columns and not df_filtered.empty:
-        # Рахуємо середні бали та кількість дзвінків
-        trend_df = df_filtered.groupby(['Дата', 'Менеджер']).agg({
+        trend_all = df_filtered.groupby('Дата').agg({
             'Крос_сел': 'mean',
             'Екосистема': 'mean',
             'Hard_Бал': 'mean',
             'Дзвінок': 'count'
         }).reset_index()
         
-        # Рахуємо успішні продажі та конверсію
-        sales_df = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає'].groupby(['Дата', 'Менеджер']).size().reset_index(name='Продажів')
-        trend_df = trend_df.merge(sales_df, on=['Дата', 'Менеджер'], how='left').fillna({'Продажів': 0})
-        trend_df['Конверсія_%'] = (trend_df['Продажів'] / trend_df['Дзвінок'] * 100).round(1)
-        
-        # 1. Графік конверсії (НОВИЙ)
-        fig_conv_trend = px.line(trend_df, x='Дата', y='Конверсія_%', color='Менеджер', markers=True, 
-                                 title="Динаміка конверсії у продаж (%)", color_discrete_sequence=px.colors.qualitative.Safe)
-        st.plotly_chart(fig_conv_trend, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # 2. Графіки крос-селу та екосистеми
+        sales_all = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає'].groupby('Дата').size().reset_index(name='Продажів')
+        trend_all = trend_all.merge(sales_all, on='Дата', how='left').fillna({'Продажів': 0})
+        trend_all['Конверсія_%'] = (trend_all['Продажів'] / trend_all['Дзвінок'] * 100).round(1)
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            fig1 = px.line(trend_all, x='Дата', y='Конверсія_%', title="Динаміка Конверсії (%)")
+            fig1.update_traces(line=dict(width=4, color='#10B981')) 
+            st.plotly_chart(fig1, use_container_width=True)
+        with c2:
+            fig2 = px.line(trend_all, x='Дата', y='Крос_сел', title="Динаміка Крос-селу (сер. бал)")
+            fig2.update_traces(line=dict(width=4, color='#F59E0B')) 
+            fig2.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig2, use_container_width=True)
+        with c3:
+            fig3 = px.line(trend_all, x='Дата', y='Екосистема', title="Динаміка Екосистеми (сер. бал)")
+            fig3.update_traces(line=dict(width=4, color='#8B5CF6')) 
+            fig3.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig3, use_container_width=True)
+
+        st.markdown("<hr style='margin: 30px 0;'>", unsafe_allow_html=True)
+        st.markdown("### 👤 Детальна динаміка по менеджерах")
+
+        trend_mgr = df_filtered.groupby(['Дата', 'Менеджер']).agg({
+            'Крос_сел': 'mean',
+            'Екосистема': 'mean',
+            'Hard_Бал': 'mean'
+        }).reset_index()
+
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            fig_cross = px.line(trend_df, x='Дата', y='Крос_сел', color='Менеджер', markers=True,
-                               title="Динаміка спроб Крос-селу (0-2 бали)", color_discrete_sequence=px.colors.qualitative.Set1)
-            fig_cross.update_yaxes(range=[-0.1, 2.1])
-            st.plotly_chart(fig_cross, use_container_width=True)
+            fig_cross_mgr = px.line(trend_mgr, x='Дата', y='Крос_сел', color='Менеджер', markers=True, title="Крос-сел по менеджерах", color_discrete_sequence=px.colors.qualitative.Set1)
+            fig_cross_mgr.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig_cross_mgr, use_container_width=True)
             
         with col_t2:
-            fig_eco = px.line(trend_df, x='Дата', y='Екосистема', color='Менеджер', markers=True,
-                             title="Пропозиція Екосистеми (0-2 бали)", color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig_eco.update_yaxes(range=[-0.1, 2.1])
-            st.plotly_chart(fig_eco, use_container_width=True)
+            fig_eco_mgr = px.line(trend_mgr, x='Дата', y='Екосистема', color='Менеджер', markers=True, title="Екосистема по менеджерах", color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_eco_mgr.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig_eco_mgr, use_container_width=True)
             
         st.markdown("---")
-        
-        # 3. Графік загального Hard Балу
-        fig_total = px.area(trend_df, x='Дата', y='Hard_Бал', color='Менеджер', 
-                           title="Загальний тренд якості розмов (Hard Бал)", color_discrete_sequence=px.colors.qualitative.Bold)
-        st.plotly_chart(fig_total, use_container_width=True)
+        fig_total_mgr = px.area(trend_mgr, x='Дата', y='Hard_Бал', color='Менеджер', title="Загальний Hard Бал по менеджерах", color_discrete_sequence=px.colors.qualitative.Bold)
+        st.plotly_chart(fig_total_mgr, use_container_width=True)
     else:
         st.info("Потрібно більше даних з датами для відображення трендів.")
 

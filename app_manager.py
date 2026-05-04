@@ -76,9 +76,15 @@ if not st.session_state["authenticated"]:
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("<div class='card' style='text-align: center;'>", unsafe_allow_html=True)
-        st.image("https://www.exist.ua/assets/images/logo.svg", width=200)
+        
+        # 1. Виправляємо картинку (логотип) через HTML
+        st.markdown("<img src='https://www.exist.ua/assets/images/logo.svg' width='200' style='margin-bottom: 15px;'>", unsafe_allow_html=True)
+        
         st.subheader("Вхід для менеджерів")
-        pin = st.text_input("Введіть свій PIN-код", type="password")
+        
+        # 2. Відключаємо нав'язливий менеджер паролів Google
+        pin = st.text_input("Введіть свій PIN-код", type="password", autocomplete="off")
+        
         if st.button("Увійти", use_container_width=True):
             if pin in MANAGER_PINS:
                 st.session_state["authenticated"] = True

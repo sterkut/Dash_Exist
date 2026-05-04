@@ -266,17 +266,40 @@ with tab_history:
             </div>
             """, unsafe_allow_html=True)
 
-            sc1, sc2 = st.columns(2)
-            with sc1:
-                st.write("👍 **Твої сильні сторони**")
-                for item in str(row.get('Сильні_Сторони', '')).split('\n'):
-                    if item.strip() and item.strip() != "-":
-                        st.markdown(f"<div class='check-item'>✓ {item.strip()}</div>", unsafe_allow_html=True)
-            with sc2:
-                st.write("🚩 **Зони для росту**")
-                for item in str(row.get('Слабкі_Сторони', '')).split('\n'):
-                    if item.strip() and item.strip() != "-" and item.strip().lower() != "немає":
-                        st.markdown(f"<div class='cross-item'>✕ {item.strip()}</div>", unsafe_allow_html=True)
+            mid1, mid2 = st.columns([1, 2])
+            with mid1:
+                with st.container(border=True):
+                    st.write("**🛡 Робота з запереченнями**")
+                    if row.get("Заперечення_Були", "Ні") == "Так":
+                        obj_score = row.get('Робота_з_запереченнями_Бал', 0)
+                        st.markdown(f"<div style='color: {'#16A34A' if obj_score==2 else '#DC2626'}; font-weight: bold; margin-bottom: 8px;'>Оцінка відпрацювання: {obj_score}/2</div>", unsafe_allow_html=True)
+                        st.write(f"<span style='font-size: 14px;'>{row.get('Заперечення_Деталі', 'Деталі відсутні')}</span>", unsafe_allow_html=True)
+                    else:
+                        st.success("✅ Заперечень не було")
+
+            with mid2:
+                sc1, sc2 = st.columns(2)
+                with sc1:
+                    st.write("👍 **Твої сильні сторони**")
+                    items = str(row.get('Сильні_Сторони', '')).split('\n')
+                    has_items = False
+                    for item in items:
+                        clean = item.strip().replace("- ", "").replace("* ", "")
+                        if clean and clean.lower() not in ["немає", "ні", "-"]:
+                            st.markdown(f"<div class='check-item'>✓ {clean}</div>", unsafe_allow_html=True)
+                            has_items = True
+                    if not has_items: st.info("Не виявлено")
+                
+                with sc2:
+                    st.write("🚩 **Зони для росту**")
+                    items = str(row.get('Слабкі_Сторони', '')).split('\n')
+                    has_items = False
+                    for item in items:
+                        clean = item.strip().replace("- ", "").replace("* ", "")
+                        if clean and clean.lower() not in ["немає", "ні", "-"]:
+                            st.markdown(f"<div class='cross-item'>✕ {clean}</div>", unsafe_allow_html=True)
+                            has_items = True
+                    if not has_items: st.success("Не виявлено")
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.info(f"**📢 Порада від ШІ:** {row.get('Порада_для_менеджера', 'Продовжуй в тому ж дусі!')}")

@@ -331,6 +331,7 @@ with tab_trends:
         trend_data = df_personal.groupby("Дата").agg({
             "Hard_Бал": "mean", 
             "Крос_сел": "mean",
+            "Екосистема": "mean", # <-- Додали розрахунок екосистеми
             "Дзвінок": "count"
         }).reset_index()
         
@@ -339,13 +340,32 @@ with tab_trends:
         trend_data = trend_data.merge(sales_data, on="Дата", how="left").fillna({'Продажів': 0})
         trend_data['Конверсія_%'] = (trend_data['Продажів'] / trend_data['Дзвінок'] * 100).round(1)
         
+        # --- НОВІ ГРАФІКИ ЗВЕРХУ (Крос-сел та Екосистема) ---
+        c1, c2 = st.columns(2)
+        with c1:
+            fig_cross = px.line(trend_data, x="Дата", y="Крос_сел", markers=True, title="Динаміка: Крос-сел (сер. бал)")
+            fig_cross.update_traces(line=dict(width=4, color='#F59E0B')) # Товста жовта лінія
+            fig_cross.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig_cross, use_container_width=True)
+            
+        with c2:
+            fig_eco = px.line(trend_data, x="Дата", y="Екосистема", markers=True, title="Динаміка: Екосистема (сер. бал)")
+            fig_eco.update_traces(line=dict(width=4, color='#8B5CF6')) # Товста фіолетова лінія
+            fig_eco.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig_eco, use_container_width=True)
+            
+        st.markdown("<hr style='margin: 20px 0;'>", unsafe_allow_html=True)
+        
+        # --- СТАРІ ГРАФІКИ ЗНИЗУ (Конверсія та Hard_Бал) ---
         col_t1, col_t2 = st.columns(2)
         with col_t1:
             fig_conv_personal = px.line(trend_data, x="Дата", y="Конверсія_%", markers=True, title="Моя конверсія у продаж (%)", color_discrete_sequence=['#10B981'])
+            fig_conv_personal.update_traces(line=dict(width=3))
             st.plotly_chart(fig_conv_personal, use_container_width=True)
             
         with col_t2:
             fig_personal = px.line(trend_data, x="Дата", y="Hard_Бал", markers=True, title="Мій прогрес (Середній Hard Бал)", color_discrete_sequence=['#3B82F6'])
+            fig_personal.update_traces(line=dict(width=3))
             st.plotly_chart(fig_personal, use_container_width=True)
     else:
         st.info("Потрібно більше закритих днів з даними, щоб побудувати графіки.")

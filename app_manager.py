@@ -269,15 +269,10 @@ with tab_history:
             
             st.markdown(f"""
             <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 24px; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 26px; font-weight: bold; flex-shrink: 0;">
-                    {res_icon}
-                </div>
+                <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 26px; font-weight: bold; flex-shrink: 0;">{res_icon}</div>
                 <div style="width: 100%;">
-                    <h4 style="margin: 0 0 10px 0; color: #0F172A; font-size: 22px; font-weight: 600;">
-                        Результат розмови: <span style="color: {res_icon_color}; font-weight: 900;">{res_title}</span>
-                    </h4>
-                    <p style="margin: 0; color: #475569; font-size: 17px; line-height: 1.6; margin-bottom: 8px;">{res_desc}</p>
-                    {reason_html}
+                    <h4 style="margin: 0 0 10px 0; color: #0F172A; font-size: 22px; font-weight: 600;">Результат розмови: <span style="color: {res_icon_color}; font-weight: 900;">{res_title}</span></h4>
+                    <p style="margin: 0; color: #475569; font-size: 17px; line-height: 1.6; margin-bottom: 8px;">{res_desc}</p>{reason_html}
                 </div>
             </div>
             """, unsafe_allow_html=True)

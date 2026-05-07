@@ -202,11 +202,36 @@ with tab_analytics:
     with col_d1:
         res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_filtered.columns else 'Результат_Розмови'
         if res_col in df_filtered.columns:
-            res_counts = df_filtered[res_col].value_counts().reset_index()
+            
+            # --- ФІКС СТАРИХ СТАТУСІВ (ГРУПУВАННЯ ДЛЯ ГРАФІКА) ---
+            def clean_status(val):
+                s = str(val).lower()
+                if any(k in s for k in ['viber', 'вайбер', 'telegram', 'телеграм', 'месенджер']):
+                    return 'Перехід у месенджер'
+                elif any(k in s for k in ['відмов', 'скасовано', 'немає']):
+                    return 'Відмова'
+                elif any(k in s for k in ['думає', 'порадить', 'вирішує', 'замір']):
+                    return 'Клієнт думає'
+                elif any(k in s for k in ['передзвон', 'зв\'яз']):
+                    return 'Домовились передзвонити'
+                elif any(k in s for k in ['сервіс', 'консультац', 'уточнення']):
+                    return 'Сервісний дзвінок'
+                elif any(k in s for k in ['оформ', 'підтверд', 'роботі', 'змінено', 'скоригов', 'продаж', 'купив', 'успіш']):
+                    return 'Продаж закрито'
+                else:
+                    return val # Залишаємо як є, якщо це щось нове або невідоме
+
+            # Застосовуємо функцію ТІЛЬКИ для графіка
+            cleaned_series = df_filtered[res_col].apply(clean_status)
+            
+            res_counts = cleaned_series.value_counts().reset_index()
             res_counts.columns = ['Результат', 'Кількість']
+            
             fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4,
                              title="Структура результатів розмов",
                              color_discrete_sequence=px.colors.qualitative.Safe)
+            # Прибираємо зайві підписи, якщо сектора надто малі
+            fig_res.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig_res, use_container_width=True)
         else:
             st.info("Немає даних про результати розмов.")

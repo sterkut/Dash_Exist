@@ -314,13 +314,7 @@ with tab_history:
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.info(f"**📢 Порада від ШІ:** {row.get('Порада_для_менеджера', 'Продовжуй в тому ж дусі!')}")
-            
-            # --- Транскрипція розмови ---
-            transcript = row.get('Транскрипція', '')
-            if pd.notna(transcript) and str(transcript).strip() != "":
-                with st.expander("📝 Показати текст розмови"):
-                    st.write(transcript)
-
+                        
 # ==========================================
 # ВКЛАДКА 3: МОЯ ДИНАМІКА
 # ==========================================

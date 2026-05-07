@@ -361,6 +361,7 @@ with tab_trends:
         with col_t1:
             fig_conv_personal = px.line(trend_data, x="Дата", y="Конверсія_%", markers=True, title="Моя конверсія у продаж (%)", color_discrete_sequence=['#10B981'])
             fig_conv_personal.update_traces(line=dict(width=3))
+            fig_conv_personal.update_yaxes(range=[0, 100]) # <--- ДОДАНО ФІКСАЦІЮ
             st.plotly_chart(fig_conv_personal, use_container_width=True)
             
         with col_t2:

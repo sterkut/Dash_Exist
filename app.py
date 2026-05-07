@@ -570,6 +570,7 @@ with tab_trends:
         with c1:
             fig1 = px.line(trend_all, x='Дата', y='Конверсія_%', title="Динаміка Конверсії (%)")
             fig1.update_traces(line=dict(width=4, color='#10B981')) 
+            fig1.update_yaxes(range=[0, 100]) # <--- ДОДАНО ФІКСАЦІЮ ВІД 0 ДО 100%
             st.plotly_chart(fig1, use_container_width=True)
         with c2:
             fig2 = px.line(trend_all, x='Дата', y='Крос_сел', title="Динаміка Крос-селу (сер. бал)")

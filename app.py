@@ -41,10 +41,15 @@ def load_data():
         if "Дата" in df.columns:
             df["Дата"] = pd.to_datetime(df["Дата"], errors='coerce').dt.date
             
-        cols_to_fix = ['Крос_сел', 'Екосистема', 'Hard_Бал', 'Робота_з_запереченнями_Бал']
-        for col in cols_to_fix:
+        # Усі навички перетворюємо на числа (текст "N/A" стане пустотою NaN, яку графіки ігнорують)
+        skill_cols = ['Привітання', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Робота_з_запереченнями_Бал']
+        for col in skill_cols:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+        # Hard_Бал та Soft_Бал залишаємо з нулями, якщо там пусто
+        if 'Hard_Бал' in df.columns: df['Hard_Бал'] = pd.to_numeric(df['Hard_Бал'], errors='coerce').fillna(0)
+        if 'Soft_Бал' in df.columns: df['Soft_Бал'] = pd.to_numeric(df['Soft_Бал'], errors='coerce').fillna(0)
     return df
 
 df = load_data()
@@ -78,6 +83,20 @@ with st.sidebar:
     selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list)
     
     df_step1 = df[df["Менеджер"].isin(selected_managers)] if selected_managers else df
+    
+    # --- НОВІ ФІЛЬТРИ (Тип дзвінка та Напрямок) ---
+    if "Тип_Дзвінка" in df_step1.columns:
+        types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
+        # Автоматично прибираємо галочку з "Холодний", щоб він не йшов у рейтинги
+        default_types = [t for t in types_list if str(t) != "Холодний"]
+        selected_types = st.multiselect("📞 Тип дзвінка (сервісні виключено)", types_list, default=default_types)
+        df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
+
+    if "Вх_Вих" in df_step1.columns:
+        dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
+        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list)
+        df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
+    # ----------------------------------------------
     
     intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
     selected_intents = st.multiselect("🎯 Готовність", intents_list, default=intents_list)
@@ -383,7 +402,7 @@ with tab_history:
     
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_filtered.columns else "Результат_Розмови"
     
-    cols_to_list = ["Дата", "Менеджер", "Дзвінок", res_col, "Hard_Бал", "Готовність"]
+    cols_to_list = ["Дата", "Менеджер", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
     cols_to_list = [c for c in cols_to_list if c in df_filtered.columns]
     
     try:

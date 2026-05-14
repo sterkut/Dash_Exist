@@ -402,7 +402,7 @@ with tab_history:
     
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_filtered.columns else "Результат_Розмови"
     
-    cols_to_list = ["Дата", "Менеджер", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
+    cols_to_list = ["Дата", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
     cols_to_list = [c for c in cols_to_list if c in df_filtered.columns]
     
     try:
@@ -429,7 +429,7 @@ with tab_history:
              row = df_filtered.loc[selected_indices[0]]
 
         st.markdown("---")
-        st.subheader(f"📄 Картка розмови: {row.get('Менеджер', 'Невідомо')}")
+        st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
         
         top1, top2, top3 = st.columns(3)
         

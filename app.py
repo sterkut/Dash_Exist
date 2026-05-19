@@ -79,63 +79,72 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("### 🎛 Фільтри")
+    
+    # 1. ПРАПОРЕЦЬ СКАРГ (Тепер він головний і стоїть першим)
+    if "Тон_Розмови" in df.columns:
+        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False)
+        if show_complaints:
+            st.info("⚠️ Інші фільтри заморожено. Показано всі скарги.")
+    else:
+        show_complaints = False
+
+    # 2. МЕНЕДЖЕРИ (Додано disabled=show_complaints до всіх фільтрів)
     managers_list = sorted(df["Менеджер"].dropna().unique()) if "Менеджер" in df.columns else []
-    selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list)
+    selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list, disabled=show_complaints)
     
     df_step1 = df[df["Менеджер"].isin(selected_managers)] if selected_managers else df
     
-    # Фільтр: Тип дзвінка
+    # 3. ТИП ДЗВІНКА
     if "Тип_Дзвінка" in df_step1.columns:
         types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
         default_types = [t for t in types_list if str(t) != "Холодний"]
-        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types)
+        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types, disabled=show_complaints)
         df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
 
-    # Фільтр: Напрямок
+    # 4. НАПРЯМОК
     if "Вх_Вих" in df_step1.columns:
         dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
-        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list)
+        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints)
         df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
     
-    # Фільтр: Готовність (Low вимкнено за замовчуванням)
+    # 5. ГОТОВНІСТЬ
     intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
     default_intents = [i for i in intents_list if str(i) != "Low"]
-    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents)
+    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents, disabled=show_complaints)
     df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
 
-    # Фільтр: Перемикання
+    # 6. ПЕРЕМИКАННЯ
     if "Було_Перемикання" in df_step2.columns:
         transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
-        selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list)
+        selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list, disabled=show_complaints)
         df_step3 = df_step2[df_step2["Було_Перемикання"].isin(selected_transfers)] if selected_transfers else df_step2
     else:
         df_step3 = df_step2
 
-    # Фільтр: Результат розмови
+    # 7. РЕЗУЛЬТАТ РОЗМОВИ
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
     if res_col in df_step3.columns:
         res_list = sorted(df_step3[res_col].dropna().unique())
-        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list)
+        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints)
         df_step4 = df_step3[df_step3[res_col].isin(selected_res)] if selected_res else df_step3
     else:
         df_step4 = df_step3
 
-    # Фільтр: Скарги (НОВИЙ ЧЕКБОКС)
-    if "Тон_Розмови" in df_step4.columns:
-        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False)
-        if show_complaints:
-            df_step5 = df_step4[df_step4["Тон_Розмови"].astype(str).str.startswith("Скарга")]
-        else:
-            df_step5 = df_step4
-    else:
-        df_step5 = df_step4
+    # 8. ПРИЧИНА ВТРАТИ
+    root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
+    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints)
+    df_step5 = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
 
-    # Фільтр: Причина втрати
-    root_list = sorted(df_step5["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step5.columns else []
-    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list)
-    df_filtered = df_step5[df_step5["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step5
+    # --- МАГІЯ ДАНИХ ДЛЯ СКАРГ ---
+    if show_complaints:
+        # Якщо прапорець увімкнено, беремо дані з ГОЛОВНОГО df, ігноруючи всі фільтри
+        df_filtered = df[df["Тон_Розмови"].astype(str).str.startswith("Скарга")]
+    else:
+        # Якщо вимкнено, беремо дані, які пройшли через усі фільтри
+        df_filtered = df_step5
 
     st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("### 💰 Фінансові параметри")
     st.markdown("### 💰 Фінансові параметри")
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
     

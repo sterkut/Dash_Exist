@@ -111,23 +111,22 @@ with st.sidebar:
     else:
         df_step3 = df_step2
 
+    # Фільтр: Результат розмови (НОВИЙ)
+    res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
+    if res_col in df_step3.columns:
+        res_list = sorted(df_step3[res_col].dropna().unique())
+        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list)
+        df_step4 = df_step3[df_step3[res_col].isin(selected_res)] if selected_res else df_step3
+    else:
+        df_step4 = df_step3
+
     # Фільтр: Причина втрати
-    root_list = sorted(df_step3["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step3.columns else []
+    root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
     selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list)
-    df_filtered = df_step3[df_step3["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step3
+    df_filtered = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
 
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("### 💰 Фінансові параметри")
-    avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
-    
-    st.markdown("#### Параметри Крос-селу")
-    avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=150, step=10)
-    cross_conv = st.slider("Конверсія у доп. продаж (%)", 0, 100, 10)
-    
-    st.markdown("<hr>", unsafe_allow_html=True)
-    if "Тривалість_хв" in df_filtered.columns:
-        total_min = df_filtered["Тривалість_хв"].sum()
-        st.metric("⏱ Опрацьовано аудіо", f"{total_min:,.1f} хв")
 
 # Розрахунок математики втрат
 intent_weights = {"High": 1.0, "Medium": 0.5, "Low": 0.0}

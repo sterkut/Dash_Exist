@@ -41,8 +41,8 @@ def load_data():
         if "Дата" in df.columns:
             df["Дата"] = pd.to_datetime(df["Дата"], errors='coerce').dt.date
             
-        # Усі навички перетворюємо на числа (текст "N/A" стане пустотою NaN, яку графіки ігнорують)
-        skill_cols = ['Привітання', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Робота_з_запереченнями_Бал']
+        # Усі навички перетворюємо на числа. Додано "Виявлення_Потреби"!
+        skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Робота_з_запереченнями_Бал']
         for col in skill_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -84,29 +84,37 @@ with st.sidebar:
     
     df_step1 = df[df["Менеджер"].isin(selected_managers)] if selected_managers else df
     
-    # --- НОВІ ФІЛЬТРИ (Тип дзвінка та Напрямок) ---
+    # Фільтр: Тип дзвінка
     if "Тип_Дзвінка" in df_step1.columns:
         types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
-        # Автоматично прибираємо галочку з "Холодний", щоб він не йшов у рейтинги
         default_types = [t for t in types_list if str(t) != "Холодний"]
-        selected_types = st.multiselect("📞 Тип дзвінка (сервісні виключено)", types_list, default=default_types)
+        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types)
         df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
 
+    # Фільтр: Напрямок
     if "Вх_Вих" in df_step1.columns:
         dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
         selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list)
         df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
-    # ----------------------------------------------
     
+    # Фільтр: Готовність (Low вимкнено за замовчуванням)
     intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
-    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=intents_list)
-
+    default_intents = [i for i in intents_list if str(i) != "Low"]
+    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents)
     df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
 
-    root_list = sorted(df_step2["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step2.columns else []
-    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list)
+    # Фільтр: Перемикання (НОВИЙ)
+    if "Було_Перемикання" in df_step2.columns:
+        transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
+        selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list)
+        df_step3 = df_step2[df_step2["Було_Перемикання"].isin(selected_transfers)] if selected_transfers else df_step2
+    else:
+        df_step3 = df_step2
 
-    df_filtered = df_step2[df_step2["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step2
+    # Фільтр: Причина втрати
+    root_list = sorted(df_step3["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step3.columns else []
+    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list)
+    df_filtered = df_step3[df_step3["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step3
 
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("### 💰 Фінансові параметри")
@@ -146,7 +154,7 @@ with tab_home:
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("📞 Всього дзвінків", f"{total_calls}")
-    m2.metric("⭐ Сер. Бал", f"{avg_hard:.1f}/12")
+    m2.metric("⭐ Сер. Бал", f"{avg_hard:.1f}/10") # Змінено на 10
     m3.metric("🎯 Конверсія", f"{conversion:.1f}%")
     m4.metric("💰 Продажів закрито", f"{closed_sales}")
 
@@ -221,8 +229,6 @@ with tab_analytics:
     with col_d1:
         res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_filtered.columns else 'Результат_Розмови'
         if res_col in df_filtered.columns:
-            
-            # --- ФІКС СТАРИХ СТАТУСІВ (ГРУПУВАННЯ ДЛЯ ГРАФІКА) ---
             def clean_status(val):
                 s = str(val).lower()
                 if any(k in s for k in ['viber', 'вайбер', 'telegram', 'телеграм', 'месенджер']):
@@ -238,18 +244,15 @@ with tab_analytics:
                 elif any(k in s for k in ['оформ', 'підтверд', 'роботі', 'змінено', 'скоригов', 'продаж', 'купив', 'успіш']):
                     return 'Продаж закрито'
                 else:
-                    return val # Залишаємо як є, якщо це щось нове або невідоме
+                    return val
 
-            # Застосовуємо функцію ТІЛЬКИ для графіка
             cleaned_series = df_filtered[res_col].apply(clean_status)
-            
             res_counts = cleaned_series.value_counts().reset_index()
             res_counts.columns = ['Результат', 'Кількість']
             
             fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4,
                              title="Структура результатів розмов",
                              color_discrete_sequence=px.colors.qualitative.Safe)
-            # Прибираємо зайві підписи, якщо сектора надто малі
             fig_res.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig_res, use_container_width=True)
         else:
@@ -416,7 +419,7 @@ with tab_history:
         )
         selected_indices = event.selection.rows
     except:
-        st.warning("⚠️ Оновіть Streamlit (`pip install --upgrade streamlit`), щоб таблиця стала клікабельною. Поки що використовуємо класичний вибір:")
+        st.warning("⚠️ Оновіть Streamlit (`pip install --upgrade streamlit`), щоб таблиця стала клікабельною.")
         display_names = df_filtered.apply(lambda r: f"{r.get('Дата','')} | {r.get('Менеджер','')} | {r['Дзвінок']}", axis=1).tolist()
         file_mapping = dict(zip(display_names, df_filtered['Дзвінок']))
         selected_display = st.selectbox("Оберіть файл дзвінка:", [""] + display_names)
@@ -429,30 +432,47 @@ with tab_history:
              row = df_filtered.loc[selected_indices[0]]
 
         st.markdown("---")
-        st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
+        
+        # --- НОВИЙ БЛОК: АУДІО ПЛЕЄР ---
+        col_hdr1, col_hdr2 = st.columns([2, 1])
+        with col_hdr1:
+            st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
+        with col_hdr2:
+            if "Посилання_на_аудіо" in row and pd.notna(row['Посилання_на_аудіо']):
+                st.audio(row['Посилання_на_аудіо'])
+            else:
+                st.caption("Аудіозапис недоступний")
+        # -------------------------------
+
+        # --- НОВИЙ БЛОК: ЛОГІКА АНАЛІЗУ ---
+        if "Логіка_Аналізу" in row and pd.notna(row['Логіка_Аналізу']):
+            with st.expander("🤖 Логіка прийняття рішення ШІ (Chain of Thought)"):
+                st.write(row['Логіка_Аналізу'])
+        # -------------------------------
         
         top1, top2, top3 = st.columns(3)
         
         with top1:
-            score = int(row.get('Hard_Бал', 0))
-            if score >= 9:
+            score = float(row.get('Hard_Бал', 0))
+            # Зміна логіки кольорів для 10-бальної шкали
+            if score >= 8:
                 score_color, score_text, bg_color = "#16A34A", "Відмінно", "#BBF7D0"
-            elif score >= 6:
+            elif score >= 5:
                 score_color, score_text, bg_color = "#F59E0B", "Задовільно", "#FDE68A"
             elif score >= 3:
                 score_color, score_text, bg_color = "#EF4444", "Потребує уваги", "#FECACA"
             else:
                 score_color, score_text, bg_color = "#991B1B", "Критично", "#FCA5A5"
 
-            deg = (score / 12) * 360
+            deg = (score / 10) * 360
             
             st.markdown(f"""
                 <div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                     <p style="color: #64748B; margin-bottom: 10px; font-weight: 600; font-size: 13px;">HARD SKILLS (ОЦІНКА)</p>
                     <div style="width: 90px; height: 90px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin-bottom: 10px;">
                         <div style="width: 72px; height: 72px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            <span style="font-size: 26px; font-weight: 800; color: #0F172A; line-height: 1;">{score}</span>
-                            <span style="font-size: 12px; color: #64748B; font-weight: 600;">з 12</span>
+                            <span style="font-size: 26px; font-weight: 800; color: #0F172A; line-height: 1;">{score:.1f}</span>
+                            <span style="font-size: 12px; color: #64748B; font-weight: 600;">з 10</span>
                         </div>
                     </div>
                     <div style="background: {bg_color}; color: {score_color}; border-radius: 20px; font-weight: bold; display: inline-block; padding: 4px 12px; font-size: 13px;">{score_text}</div>
@@ -483,18 +503,27 @@ with tab_history:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- Оцінка роботи менеджера (Резюме) ---
+        # --- Оцінка роботи менеджера ---
         manager_summary = row.get('Оцінка_Роботи_Менеджера', '')
         if pd.notna(manager_summary) and str(manager_summary).strip() != "":
             st.info(f"💬 **Оцінка роботи менеджера:** {manager_summary}")
-        # ----------------------------------------------
         
+        # --- НОВИЙ БЛОК: АНАЛІЗ ПЕРЕМИКАННЯ ---
+        if row.get('Було_Перемикання', 'Ні') == 'Так':
+            justified = row.get('Перемикання_Виправдане', '')
+            if "Так" in str(justified):
+                st.success(f"🔁 **Перемикання/Створення запиту:** Виправдане. Причина: {justified}")
+            elif "Ні" in str(justified):
+                st.error(f"🚫 **Перемикання/Створення запиту:** НЕ ВИПРАВДАНЕ! Менеджер мав вирішити це питання сам. Аналіз: {justified}")
+            else:
+                st.warning(f"🔁 **Перемикання/Створення запиту:** Невідомо (клієнт не озвучив суть).")
+        # --------------------------------------
+
         # 🟢 ДИНАМІЧНИЙ БЛОК РЕЗУЛЬТАТУ РОЗМОВИ
         res_title = row.get('Результат_Розмови_Заголовок', row.get('Результат_Розмови', 'Не визначено'))
         res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
         root_prob = row.get('ROOT_PROBLEM', 'Немає')
         
-        # Логіка кольорів результату з урахуванням причин (Збільшені шрифти)
         if root_prob == 'Немає': 
             res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#F0FDF4", "#BBF7D0", "#DCFCE7", "#16A34A", "✓"
             reason_html = ""
@@ -583,7 +612,7 @@ with tab_trends:
         with c1:
             fig1 = px.line(trend_all, x='Дата', y='Конверсія_%', title="Динаміка Конверсії (%)")
             fig1.update_traces(line=dict(width=4, color='#10B981')) 
-            fig1.update_yaxes(range=[0, 100]) # <--- ДОДАНО ФІКСАЦІЮ ВІД 0 ДО 100%
+            fig1.update_yaxes(range=[0, 100])
             st.plotly_chart(fig1, use_container_width=True)
         with c2:
             fig2 = px.line(trend_all, x='Дата', y='Крос_сел', title="Динаміка Крос-селу (сер. бал)")
@@ -628,7 +657,8 @@ with tab_trends:
 with tab_coach:
     st.markdown("### 🎓 Детальна матриця навичок")
     
-    skill_cols = ['Привітання', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Привітність', 'Емпатія']
+    # Додано Виявлення_Потреби і Ввічливість (замість Активного слухання)
+    skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Привітність', 'Ввічливість', 'Емпатія']
     existing_skills = [c for c in skill_cols if c in df_filtered.columns]
     
     agg_dict = {"Дзвінків": pd.NamedAgg(column="Дзвінок", aggfunc="count")}

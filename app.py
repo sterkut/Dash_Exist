@@ -58,7 +58,7 @@ if df.empty:
     st.error("❌ Не вдалося знайти дані. Перевірте Google Sheets або наявність локального файлу.")
     st.stop()
 
-# --- 3. САЙДБАР ---
+# --- 3. САЙДБАР ТА ФІЛЬТРИ ---
 with st.sidebar:
     st.markdown(
         """
@@ -103,7 +103,7 @@ with st.sidebar:
     selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents)
     df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
 
-    # Фільтр: Перемикання (НОВИЙ)
+    # Фільтр: Перемикання
     if "Було_Перемикання" in df_step2.columns:
         transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
         selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list)
@@ -111,7 +111,7 @@ with st.sidebar:
     else:
         df_step3 = df_step2
 
-    # Фільтр: Результат розмови (НОВИЙ)
+    # Фільтр: Результат розмови
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
     if res_col in df_step3.columns:
         res_list = sorted(df_step3[res_col].dropna().unique())
@@ -120,20 +120,43 @@ with st.sidebar:
     else:
         df_step4 = df_step3
 
+    # Фільтр: Скарги (НОВИЙ ЧЕКБОКС)
+    if "Тон_Розмови" in df_step4.columns:
+        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False)
+        if show_complaints:
+            df_step5 = df_step4[df_step4["Тон_Розмови"].astype(str).str.startswith("Скарга")]
+        else:
+            df_step5 = df_step4
+    else:
+        df_step5 = df_step4
+
     # Фільтр: Причина втрати
-    root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
+    root_list = sorted(df_step5["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step5.columns else []
     selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list)
-    df_filtered = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
+    df_filtered = df_step5[df_step5["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step5
 
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("### 💰 Фінансові параметри")
+    avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
+    
+    st.markdown("#### Параметри Крос-селу")
+    avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=150, step=10)
+    cross_conv = st.slider("Конверсія у доп. продаж (%)", 0, 100, 10)
+    
+    st.markdown("<hr>", unsafe_allow_html=True)
+    if "Тривалість_хв" in df_filtered.columns:
+        total_min = df_filtered["Тривалість_хв"].sum()
+        st.metric("⏱ Опрацьовано аудіо", f"{total_min:,.1f} хв")
 
-# Розрахунок математики втрат
+# ==========================================
+# 🛑 МАТЕМАТИКА (ПОЗА САЙДБАРОМ)
+# ==========================================
 intent_weights = {"High": 1.0, "Medium": 0.5, "Low": 0.0}
 df_filtered['Потенціал_грн'] = df_filtered['Готовність'].map(intent_weights).fillna(0) * avg_check
 df_filtered['Втрачено_Головна'] = df_filtered.apply(lambda x: x['Потенціал_грн'] if x['ROOT_PROBLEM'] != 'Немає' else 0, axis=1)
 df_filtered['Втрачено_Крос'] = df_filtered.apply(lambda x: (avg_cross_check * (cross_conv/100)) if (x['ROOT_PROBLEM'] == 'Немає' and x['Спроба_Крос_Селу'] == 'Ні') else 0, axis=1)
 df_filtered['Втрачено_грн'] = df_filtered['Втрачено_Головна'] + df_filtered['Втрачено_Крос']
+
 
 # --- 4. ВКЛАДКИ ---
 tab_home, tab_analytics, tab_ceo, tab_history, tab_trends, tab_coach = st.tabs([
@@ -153,7 +176,7 @@ with tab_home:
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("📞 Всього дзвінків", f"{total_calls}")
-    m2.metric("⭐ Сер. Бал", f"{avg_hard:.1f}/10") # Змінено на 10
+    m2.metric("⭐ Сер. Бал", f"{avg_hard:.1f}/10")
     m3.metric("🎯 Конверсія", f"{conversion:.1f}%")
     m4.metric("💰 Продажів закрито", f"{closed_sales}")
 
@@ -432,7 +455,7 @@ with tab_history:
 
         st.markdown("---")
         
-        # --- НОВИЙ БЛОК: АУДІО ПЛЕЄР ---
+        # --- БЛОК: АУДІО ПЛЕЄР ---
         col_hdr1, col_hdr2 = st.columns([2, 1])
         with col_hdr1:
             st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
@@ -443,7 +466,7 @@ with tab_history:
                 st.caption("Аудіозапис недоступний")
         # -------------------------------
 
-        # --- НОВИЙ БЛОК: ЛОГІКА АНАЛІЗУ ---
+        # --- БЛОК: ЛОГІКА АНАЛІЗУ ---
         if "Логіка_Аналізу" in row and pd.notna(row['Логіка_Аналізу']):
             with st.expander("🤖 Логіка прийняття рішення ШІ (Chain of Thought)"):
                 st.write(row['Логіка_Аналізу'])
@@ -453,7 +476,6 @@ with tab_history:
         
         with top1:
             score = float(row.get('Hard_Бал', 0))
-            # Зміна логіки кольорів для 10-бальної шкали
             if score >= 8:
                 score_color, score_text, bg_color = "#16A34A", "Відмінно", "#BBF7D0"
             elif score >= 5:
@@ -489,14 +511,22 @@ with tab_history:
 
         with top3:
             soft = int(row.get('Soft_Бал', 0))
-            tone = row.get('Тон_Розмови', 'Дані відсутні')
+            tone = str(row.get('Тон_Розмови', 'Дані відсутні'))
+            
+            # ВІЗУАЛІЗАЦІЯ СКАРГИ (ЧЕРВОНИЙ ФОН)
+            is_complaint = tone.startswith("Скарга")
+            tone_bg = "#FEF2F2" if is_complaint else "#ffffff"
+            tone_border = "#FECACA" if is_complaint else "#E2E8F0"
+            tone_text_color = "#991B1B" if is_complaint else "#334155"
+            tone_title_color = "#DC2626" if is_complaint else "#64748B"
+            
             st.markdown(f"""
-                <div class="card" style="height: 100%;">
+                <div class="card" style="height: 100%; background-color: {tone_bg}; border-color: {tone_border};">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <p style="color: #64748B; margin: 0; font-weight: 600; font-size: 13px;">ТОН РОЗМОВИ</p>
+                        <p style="color: {tone_title_color}; margin: 0; font-weight: 800; font-size: 13px;">{'🚨 АЛАРМ: СКАРГА' if is_complaint else 'ТОН РОЗМОВИ'}</p>
                         <span style="background: #F1F5F9; color: #334155; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">Soft: {soft}/8</span>
                     </div>
-                    <p style="margin: 0; color: #334155; font-size: 14px; line-height: 1.5; font-style: italic;">"{tone}"</p>
+                    <p style="margin: 0; color: {tone_text_color}; font-size: 14px; line-height: 1.5; font-style: italic; font-weight: {'600' if is_complaint else 'normal'};">"{tone}"</p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -507,7 +537,7 @@ with tab_history:
         if pd.notna(manager_summary) and str(manager_summary).strip() != "":
             st.info(f"💬 **Оцінка роботи менеджера:** {manager_summary}")
         
-        # --- НОВИЙ БЛОК: АНАЛІЗ ПЕРЕМИКАННЯ ---
+        # --- БЛОК: АНАЛІЗ ПЕРЕМИКАННЯ ---
         if row.get('Було_Перемикання', 'Ні') == 'Так':
             justified = row.get('Перемикання_Виправдане', '')
             if "Так" in str(justified):
@@ -656,7 +686,6 @@ with tab_trends:
 with tab_coach:
     st.markdown("### 🎓 Детальна матриця навичок")
     
-    # Додано Виявлення_Потреби і Ввічливість (замість Активного слухання)
     skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Привітність', 'Ввічливість', 'Емпатія']
     existing_skills = [c for c in skill_cols if c in df_filtered.columns]
     

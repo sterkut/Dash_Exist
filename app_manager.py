@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import os
 
 # --- 1. НАЛАШТУВАННЯ СТОРІНКИ ---
@@ -20,23 +21,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. БАЗА PIN-КОДІВ (ЗАЛИШИВ ЯК Є) ---
+# --- 2. БАЗА PIN-КОДІВ ---
 MANAGER_PINS = {
-    "1365": "Kobernyk",
-    "2563": "Gardaman",
-    "9586": "Nikolaychuk",
-    "7562": "Bezdukhyi",
-    "4216": "Chumakevych",
-    "7381": "Gaskov",
-    "5536": "Bezushkevych",
-    "9743": "Palanichko",
-    "9832": "Tovarianskyi",
-    "9586": "Protsiv",
-    "3632": "Sobeiko",
-    "5587": "Yakubovskyi",
-    "2534": "Melnyk",
-    "8472": "Verner",
-    "5741": "Zabrodskyi"
+    "1365": "Kobernyk", "2563": "Gardaman", "9586": "Nikolaychuk", "7562": "Bezdukhyi",
+    "4216": "Chumakevych", "7381": "Gaskov", "5536": "Bezushkevych", "9743": "Palanichko",
+    "9832": "Tovarianskyi", "9586": "Protsiv", "3632": "Sobeiko", "5587": "Yakubovskyi",
+    "2534": "Melnyk", "8472": "Verner", "5741": "Zabrodskyi"
 }
 
 # --- 3. ЗАВАНТАЖЕННЯ ДАНИХ ---
@@ -59,13 +49,22 @@ def load_data():
         if "Дата" in df.columns:
             df["Дата"] = pd.to_datetime(df["Дата"], errors='coerce').dt.date
         
-        cols_to_fix = ['Hard_Бал', 'Soft_Бал', 'Крос_сел', 'Екосистема']
-        for col in cols_to_fix:
+        skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Робота_з_запереченнями_Бал', 'Привітність', 'Ввічливість', 'Емпатія']
+        for col in skill_cols:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+        if 'Hard_Бал' in df.columns: df['Hard_Бал'] = pd.to_numeric(df['Hard_Бал'], errors='coerce').fillna(0)
+        if 'Soft_Бал' in df.columns: df['Soft_Бал'] = pd.to_numeric(df['Soft_Бал'], errors='coerce').fillna(0)
     return df
 
 df_full = load_data()
+
+if df_full.empty:
+    st.error("❌ Не вдалося знайти дані.")
+    st.stop()
+
+df_full["Менеджер_Clean"] = df_full["Менеджер"].astype(str).str.strip()
 
 # --- 4. АВТОРИЗАЦІЯ ---
 if "authenticated" not in st.session_state:
@@ -76,19 +75,13 @@ if not st.session_state["authenticated"]:
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("<div class='card' style='text-align: center;'>", unsafe_allow_html=True)
-        
-        # 1. Виправляємо картинку (логотип) через HTML
-        # Красивий текстовий логотип замість картинки
         st.markdown("""
             <div style='margin-bottom: 15px;'>
                 <span style='font-size: 42px; font-weight: 900; color: #1E3A8A; letter-spacing: 1px;'>EXIST</span>
                 <span style='font-size: 42px; font-weight: 900; color: #F59E0B;'>.UA</span>
             </div>
         """, unsafe_allow_html=True)
-        
         st.subheader("Вхід для менеджерів")
-        
-        # 2. Відключаємо нав'язливий менеджер паролів Google
         pin = st.text_input("Введіть свій PIN-код", type="password", autocomplete="off")
         
         if st.button("Увійти", use_container_width=True):
@@ -101,121 +94,221 @@ if not st.session_state["authenticated"]:
         st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- 5. ФІЛЬТРАЦІЯ ДАНИХ (ПЕРСОНАЛІЗАЦІЯ) ---
+# --- 5. ФІЛЬТРАЦІЯ ДАНИХ (Для компанії і для менеджера) ---
 manager_name = st.session_state["manager_name"]
-df_full["Менеджер_Clean"] = df_full["Менеджер"].astype(str).str.strip()
-df_personal = df_full[df_full["Менеджер_Clean"] == manager_name].copy()
 
-# --- 6. ГОЛОВНИЙ ІНТЕРФЕЙС ---
 with st.sidebar:
     st.markdown(f"### Вітаємо, {manager_name}! 👋")
     st.write("Твій AI-тренер готовий до розбору.")
     if st.button("🚪 Вийти"):
         st.session_state["authenticated"] = False
         st.rerun()
+    if st.button("🔄 Оновити дані"):
+        st.cache_data.clear()
+        st.rerun()
     st.markdown("---")
-    st.info("Поради формуються на основі твоїх останніх розмов.")
+    st.markdown("### 🎛 Фільтри")
+    
+    if "Тон_Розмови" in df_full.columns:
+        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False)
+        if show_complaints: st.info("⚠️ Інші фільтри заморожено.")
+    else: show_complaints = False
 
+    # Фільтруємо df_full (щоб рахувати середнє по компанії коректно)
+    df_step1 = df_full.copy()
+    
+    if "Тип_Дзвінка" in df_step1.columns:
+        types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
+        default_types = [t for t in types_list if str(t) != "Холодний"]
+        selected_types = st.multiselect("📞 Тип дзвінка", types_list, default=default_types, disabled=show_complaints)
+        df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
+
+    if "Вх_Вих" in df_step1.columns:
+        dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
+        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints)
+        df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
+    
+    intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
+    default_intents = [i for i in intents_list if str(i) != "Low"]
+    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents, disabled=show_complaints)
+    df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
+
+    if "Було_Перемикання" in df_step2.columns:
+        transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
+        selected_transfers = st.multiselect("🔁 Перемикання?", transfers_list, default=transfers_list, disabled=show_complaints)
+        df_step3 = df_step2[df_step2["Було_Перемикання"].isin(selected_transfers)] if selected_transfers else df_step2
+    else: df_step3 = df_step2
+
+    res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
+    if res_col in df_step3.columns:
+        res_list = sorted(df_step3[res_col].dropna().unique())
+        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints)
+        df_step4 = df_step3[df_step3[res_col].isin(selected_res)] if selected_res else df_step3
+    else: df_step4 = df_step3
+
+    root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
+    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints)
+    df_step5 = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
+
+    # Глобальний відфільтрований DF (для порівняння з компанією)
+    if show_complaints:
+        df_company_filtered = df_full[df_full["Тон_Розмови"].astype(str).str.startswith("Скарга")]
+    else:
+        df_company_filtered = df_step5
+
+    # Персональний відфільтрований DF (тільки для цього менеджера)
+    df_personal = df_company_filtered[df_company_filtered["Менеджер_Clean"] == manager_name]
+
+# --- 6. ГОЛОВНИЙ ІНТЕРФЕЙС ---
 st.title("🚀 Мій AI-Тренер")
 
-tab_analytics, tab_history, tab_trends = st.tabs(["🎯 Дашборд Ефективності", "🎧 Мої дзвінки та розбір", "📈 Моя динаміка"])
+tab_home, tab_analytics, tab_history, tab_trends, tab_coach = st.tabs([
+    "🏠 Головна", "🎯 Дашборд Ефективності", "🎧 Мої дзвінки", "📈 Моя динаміка", "🎓 Матриця навичок"
+])
 
 # ==========================================
-# ВКЛАДКА 1: ДАШБОРД ЕФЕКТИВНОСТІ
+# ПАНЕЛЬ 0: ГОЛОВНА (ОГЛЯД)
+# ==========================================
+with tab_home:
+    total_calls = len(df_personal)
+    avg_hard = df_personal['Hard_Бал'].mean() if total_calls > 0 else 0
+    closed_sales = (df_personal['ROOT_PROBLEM'] == 'Немає').sum()
+    conversion = (closed_sales / total_calls * 100) if total_calls > 0 else 0
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("📞 Твої дзвінки", f"{total_calls}")
+    m2.metric("⭐ Твій сер. Бал", f"{avg_hard:.1f}/10")
+    m3.metric("🎯 Твоя конверсія", f"{conversion:.1f}%")
+    m4.metric("💰 Продажів закрито", f"{closed_sales}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if not df_company_filtered.empty:
+        mgr_summary = df_company_filtered.groupby("Менеджер_Clean").agg(
+            Дзвінків=('Дзвінок', 'count'),
+            Продажів=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum()),
+            Сер_Хард=('Hard_Бал', 'mean')
+        ).reset_index()
+
+        best_quality_mgr = mgr_summary.sort_values(by='Сер_Хард', ascending=False).iloc[0]
+        
+        if best_quality_mgr['Менеджер_Clean'] == manager_name:
+            st.success(f"🎉 Вітаємо! Ти зараз **ЛІДЕР** компанії за якістю обслуговування (сер. бал: {best_quality_mgr['Сер_Хард']:.1f})!")
+        else:
+            st.info(f"✨ Лідер компанії за якістю зараз: **{best_quality_mgr['Менеджер_Clean']}** (сер. бал: {best_quality_mgr['Сер_Хард']:.1f}). Тобі є куди рости!")
+
+        st.markdown("### 🏆 Топ-3 менеджери компанії")
+        top_mgrs = mgr_summary.sort_values(by=['Продажів', 'Сер_Хард'], ascending=False).head(3)
+        
+        for _, mgr in top_mgrs.iterrows():
+            is_me = mgr['Менеджер_Clean'] == manager_name
+            bg_color = "#DBEAFE" if is_me else "#F0FDF4"
+            border_color = "#3B82F6" if is_me else "#22C55E"
+            text_color = "#1E3A8A" if is_me else "#166534"
+            badge_bg = "#BFDBFE" if is_me else "#DCFCE7"
+            
+            st.markdown(f"""
+                <div style='background: {bg_color}; padding: 15px; border-radius: 12px; border-left: 5px solid {border_color}; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
+                    <div style='display: flex; justify-content: space-between; align-items: center;'>
+                        <span style='font-weight: 800; color: {text_color}; font-size: 17px;'>{mgr['Менеджер_Clean']} {'(ТИ)' if is_me else ''}</span>
+                        <span style='background: {badge_bg}; color: {text_color}; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
+                    </div>
+                    <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
+                        <b>{mgr['Продажів']}</b> продажів з <b>{mgr['Дзвінків']}</b> дзвінків
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+# ==========================================
+# ПАНЕЛЬ 1: АНАЛІТИКА (ТІЛЬКИ ПО СОБІ)
 # ==========================================
 with tab_analytics:
-    st.markdown("### 📊 Твої особисті показники та місце в рейтингу")
+    st.markdown("### 📊 Твоя аналітика та конверсія")
     
-    c1, c2 = st.columns(2)
-    with c1:
-        # Тільки твої результати розмов
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
         res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_personal.columns else 'Результат_Розмови'
         if not df_personal.empty and res_col in df_personal.columns:
-            res_counts = df_personal[res_col].value_counts().reset_index()
+            def clean_status(val):
+                s = str(val).lower()
+                if any(k in s for k in ['viber', 'вайбер', 'telegram', 'телеграм', 'месенджер']): return 'Перехід у месенджер'
+                elif any(k in s for k in ['відмов', 'скасовано', 'немає']): return 'Відмова'
+                elif any(k in s for k in ['думає', 'порадить', 'вирішує', 'замір']): return 'Клієнт думає'
+                elif any(k in s for k in ['передзвон', 'зв\'яз']): return 'Домовились передзвонити'
+                elif any(k in s for k in ['сервіс', 'консультац', 'уточнення']): return 'Сервісний дзвінок'
+                elif any(k in s for k in ['оформ', 'підтверд', 'роботі', 'змінено', 'скоригов', 'продаж', 'купив', 'успіш']): return 'Продаж закрито'
+                else: return val
+
+            cleaned_series = df_personal[res_col].apply(clean_status)
+            res_counts = cleaned_series.value_counts().reset_index()
             res_counts.columns = ['Результат', 'Кількість']
             fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4, title="Твої результати розмов")
             st.plotly_chart(fig_res, use_container_width=True)
         else:
             st.info("Немає даних для діаграми.")
             
-    with c2:
-        # Твоя конверсія
-        total_calls = len(df_personal)
-        success_steps = (df_personal['Зафіксував_Наступний_Крок'] == 'Так').sum() if 'Зафіксував_Наступний_Крок' in df_personal.columns else 0
-        closed_sales = (df_personal['ROOT_PROBLEM'] == 'Немає').sum()
-        conv_rate = (closed_sales / total_calls * 100) if total_calls > 0 else 0
+    with col_d2:
+        total_calls_p = len(df_personal)
+        success_steps_p = (df_personal['Зафіксував_Наступний_Крок'] == 'Так').sum() if 'Зафіксував_Наступний_Крок' in df_personal.columns else 0
+        closed_sales_p = (df_personal['ROOT_PROBLEM'] == 'Немає').sum()
+        conv_rate_p = (closed_sales_p / total_calls_p * 100) if total_calls_p > 0 else 0
 
-        st.markdown("### 🎯 Твоя конверсія")
-        st.markdown(f"<p style='color: #64748B; font-size: 14px; margin-top: -15px;'>Твоя реальна ефективність: {conv_rate:.1f}%</p>", unsafe_allow_html=True)
+        st.markdown("### 🎯 Твоя воронка конверсії")
+        st.markdown(f"<p style='color: #64748B; font-size: 14px; margin-top: -15px;'>Твоя реальна ефективність: {conv_rate_p:.1f}%</p>", unsafe_allow_html=True)
         
         conv_plot_df = pd.DataFrame({
             'Етап': ['Всі твої дзвінки', 'Успішні угоди', 'Продажів закрито'],
-            'Кількість': [total_calls, success_steps, closed_sales]
+            'Кількість': [total_calls_p, success_steps_p, closed_sales_p]
         })
-        
-        fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість',
-                          color='Етап', color_discrete_map={'Всі твої дзвінки': '#94A3B8', 'Успішні угоди': '#3B82F6', 'Продажів закрито': '#10B981'})
-        fig_conv.update_layout(showlegend=False, height=300, margin=dict(t=10, b=0, l=0, r=0), xaxis_title=None, yaxis_title=None)
+        fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість', color='Етап', color_discrete_map={'Всі твої дзвінки': '#94A3B8', 'Успішні угоди': '#3B82F6', 'Продажів закрито': '#10B981'})
+        fig_conv.update_layout(showlegend=False, height=350, margin=dict(t=10, b=0, l=0, r=0))
         st.plotly_chart(fig_conv, use_container_width=True)
 
-    st.markdown("---")
-    st.markdown("### 🏆 Загальний рейтинг менеджерів")
-    
-    leaderboard = df_full.groupby("Менеджер_Clean").agg(
-        Дзвінків=('Дзвінок', 'count'),
-        Середній_Хард=('Hard_Бал', 'mean'),
-        Найвищий_Хард=('Hard_Бал', 'max'),
-        Продажів=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum())
-    ).reset_index()
-    leaderboard['Конверсія_%'] = (leaderboard['Продажів'] / leaderboard['Дзвінків'] * 100).round(1)
-    leaderboard = leaderboard.rename(columns={'Менеджер_Clean': 'Прізвище'}).sort_values(by="Середній_Хард", ascending=False)
-    
-    def highlight_self(s):
-        return ['background-color: #E0F2FE; font-weight: bold' if s.Прізвище == manager_name else '' for _ in s]
-
-    st.dataframe(leaderboard.style.apply(highlight_self, axis=1).format({'Середній_Хард': '{:.1f}', 'Конверсія_%': '{:.1f}%'}), use_container_width=True, hide_index=True)
-
 # ==========================================
-# ВКЛАДКА 2: МОЇ ДЗВІНКИ ТА РОЗБІР
+# ПАНЕЛЬ 2: ІСТОРІЯ ТА РОЗБІР (ТІЛЬКИ ПО СОБІ)
 # ==========================================
 with tab_history:
-    st.markdown(f"### 🎧 Твої останні розмови")
+    st.markdown("### 🎧 Мої дзвінки та розбір помилок")
     
     if df_personal.empty:
-        st.warning(f"Поки що немає проаналізованих дзвінків для менеджера {manager_name}.")
+        st.warning("Поки що немає проаналізованих дзвінків.")
     else:
-        res_col_p = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_personal.columns else 'Результат_Розмови'
-        cols_to_show = ["Дата", "Дзвінок", res_col_p, "Hard_Бал", "Готовність"]
-        cols_to_show = [c for c in cols_to_show if c in df_personal.columns]
+        cols_to_list = ["Дата", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
+        cols_to_list = [c for c in cols_to_list if c in df_personal.columns]
         
-        event = st.dataframe(df_personal[cols_to_show], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", height=250)
+        event = st.dataframe(df_personal[cols_to_list], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", height=250)
         
         selected_indices = event.selection.rows
         if selected_indices:
             row = df_personal.iloc[selected_indices[0]]
-            st.markdown("---")
-            
-            top1, top2, top3 = st.columns(3)
-        
-            with top1:
-                score = int(row.get('Hard_Бал', 0))
-                if score >= 9:
-                    score_color, score_text, bg_color = "#16A34A", "Відмінно", "#BBF7D0"
-                elif score >= 6:
-                    score_color, score_text, bg_color = "#F59E0B", "Задовільно", "#FDE68A"
-                elif score >= 3:
-                    score_color, score_text, bg_color = "#EF4444", "Потребує уваги", "#FECACA"
-                else:
-                    score_color, score_text, bg_color = "#991B1B", "Критично", "#FCA5A5"
 
-                deg = (score / 12) * 360
+            st.markdown("---")
+            col_hdr1, col_hdr2 = st.columns([2, 1])
+            with col_hdr1: st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
+            with col_hdr2:
+                if "Посилання_на_аудіо" in row and pd.notna(row['Посилання_на_аудіо']):
+                    st.audio(row['Посилання_на_аудіо'])
+            
+            if "Логіка_Аналізу" in row and pd.notna(row['Логіка_Аналізу']):
+                with st.expander("🤖 Логіка прийняття рішення ШІ (Чому оцінка саме така?)"):
+                    st.write(row['Логіка_Аналізу'])
+
+            top1, top2, top3 = st.columns(3)
+            with top1:
+                score = float(row.get('Hard_Бал', 0))
+                if score >= 8: score_color, score_text, bg_color = "#16A34A", "Відмінно", "#BBF7D0"
+                elif score >= 5: score_color, score_text, bg_color = "#F59E0B", "Задовільно", "#FDE68A"
+                elif score >= 3: score_color, score_text, bg_color = "#EF4444", "Потребує уваги", "#FECACA"
+                else: score_color, score_text, bg_color = "#991B1B", "Критично", "#FCA5A5"
+
+                deg = (score / 10) * 360
                 st.markdown(f"""
                     <div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                         <p style="color: #64748B; margin-bottom: 10px; font-weight: 600; font-size: 13px;">HARD SKILLS (ОЦІНКА)</p>
                         <div style="width: 90px; height: 90px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin-bottom: 10px;">
                             <div style="width: 72px; height: 72px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                <span style="font-size: 26px; font-weight: 800; color: #0F172A; line-height: 1;">{score}</span>
-                                <span style="font-size: 12px; color: #64748B; font-weight: 600;">з 12</span>
+                                <span style="font-size: 26px; font-weight: 800; color: #0F172A; line-height: 1;">{score:.1f}</span>
+                                <span style="font-size: 12px; color: #64748B; font-weight: 600;">з 10</span>
                             </div>
                         </div>
                         <div style="background: {bg_color}; color: {score_color}; border-radius: 20px; font-weight: bold; display: inline-block; padding: 4px 12px; font-size: 13px;">{score_text}</div>
@@ -224,143 +317,174 @@ with tab_history:
                 
             with top2:
                 intent = row.get('Готовність', 'N/A')
-                st.markdown(f"""<div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; justify-content: center;">
-                    <p style="color: #64748B; margin-bottom: 5px; font-weight: 600; font-size: 13px;">ГОТОВНІСТЬ КЛІЄНТА</p>
-                    <h1 style="color: #1E3A8A; margin: 10px 0; font-size: 32px;">{intent}</h1>
-                </div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                    <div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+                        <p style="color: #64748B; margin-bottom: 5px; font-weight: 600; font-size: 13px;">ГОТОВНІСТЬ КЛІЄНТА</p>
+                        <h1 style="color: #1E3A8A; margin: 10px 0; font-size: 32px;">{intent}</h1>
+                    </div>
+                """, unsafe_allow_html=True)
 
             with top3:
                 soft = int(row.get('Soft_Бал', 0))
-                tone = row.get('Тон_Розмови', 'Дані відсутні')
-                st.markdown(f"""<div class="card" style="height: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <p style="color: #64748B; margin: 0; font-weight: 600; font-size: 13px;">ТОН РОЗМОВИ</p>
-                        <span style="background: #F1F5F9; color: #334155; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">Soft: {soft}/8</span>
+                tone = str(row.get('Тон_Розмови', 'Дані відсутні'))
+                is_complaint = tone.startswith("Скарга")
+                tone_bg = "#FEF2F2" if is_complaint else "#ffffff"
+                tone_border = "#FECACA" if is_complaint else "#E2E8F0"
+                
+                st.markdown(f"""
+                    <div class="card" style="height: 100%; background-color: {tone_bg}; border-color: {tone_border};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <p style="color: {'#DC2626' if is_complaint else '#64748B'}; margin: 0; font-weight: 800; font-size: 13px;">{'🚨 АЛАРМ: СКАРГА' if is_complaint else 'ТОН РОЗМОВИ'}</p>
+                            <span style="background: #F1F5F9; color: #334155; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">Soft: {soft}/8</span>
+                        </div>
+                        <p style="margin: 0; color: {'#991B1B' if is_complaint else '#334155'}; font-size: 14px; font-style: italic;">"{tone}"</p>
                     </div>
-                    <p style="margin: 0; color: #334155; font-size: 14px; line-height: 1.5; font-style: italic;">"{tone}"</p>
-                </div>""", unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- Оцінка роботи менеджера (Резюме) ---
             manager_summary = row.get('Оцінка_Роботи_Менеджера', '')
             if pd.notna(manager_summary) and str(manager_summary).strip() != "":
-                st.info(f"💬 **Оцінка роботи менеджера:** {manager_summary}")
-            # ----------------------------------------------
+                st.info(f"💬 **Резюме розмови:** {manager_summary}")
             
-            # 🟢 ДИНАМІЧНИЙ БЛОК РЕЗУЛЬТАТУ РОЗМОВИ
+            if row.get('Було_Перемикання', 'Ні') == 'Так':
+                justified = row.get('Перемикання_Виправдане', '')
+                if "Так" in str(justified): st.success(f"🔁 **Перемикання:** Виправдане. {justified}")
+                elif "Ні" in str(justified): st.error(f"🚫 **Перемикання:** НЕ ВИПРАВДАНЕ! Ти мав вирішити це сам. {justified}")
+                else: st.warning(f"🔁 **Перемикання:** Невідомо (клієнт не озвучив суть).")
+
             res_title = row.get('Результат_Розмови_Заголовок', row.get('Результат_Розмови', 'Не визначено'))
             res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
             root_prob = row.get('ROOT_PROBLEM', 'Немає')
             
-            # Логіка кольорів результату з урахуванням причин (Збільшені шрифти)
-            if root_prob == 'Немає': 
-                res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#F0FDF4", "#BBF7D0", "#DCFCE7", "#16A34A", "✓"
-                reason_html = ""
-            elif "Відмова" in str(res_title) or root_prob in ['Менеджер', 'Ціна', 'Наявність', 'Термін поставки', 'Процес']: 
-                res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEF2F2", "#FECACA", "#FEE2E2", "#DC2626", "!"
-                reason_html = f"<hr style='margin: 12px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 16px; font-weight: bold;'>Причина відмови: {root_prob}</p>"
-            else: 
-                res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEFCE8", "#FEF08A", "#FEF08A", "#B45309", "?"
-                if root_prob and root_prob != 'Немає':
-                    reason_html = f"<hr style='margin: 12px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 16px; font-weight: bold;'>Статус: {root_prob}</p>"
-                else:
-                    reason_html = ""
+            if root_prob == 'Немає': res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#F0FDF4", "#BBF7D0", "#DCFCE7", "#16A34A", "✓"
+            elif root_prob in ['Менеджер', 'Ціна', 'Наявність', 'Термін поставки', 'Процес']: res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEF2F2", "#FECACA", "#FEE2E2", "#DC2626", "!"
+            else: res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEFCE8", "#FEF08A", "#FEF08A", "#B45309", "?"
             
             st.markdown(f"""
-            <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 24px; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 26px; font-weight: bold; flex-shrink: 0;">{res_icon}</div>
-                <div style="width: 100%;">
-                    <h4 style="margin: 0 0 10px 0; color: #0F172A; font-size: 22px; font-weight: 600;">Результат розмови: <span style="color: {res_icon_color}; font-weight: 900;">{res_title}</span></h4>
-                    <p style="margin: 0; color: #475569; font-size: 17px; line-height: 1.6; margin-bottom: 8px;">{res_desc}</p>{reason_html}
+            <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 20px; display: flex; gap: 15px; margin-bottom: 20px;">
+                <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; flex-shrink: 0;">{res_icon}</div>
+                <div>
+                    <h4 style="margin: 0 0 8px 0; color: #0F172A;">Результат: <span style="color: {res_icon_color};">{res_title}</span></h4>
+                    <p style="margin: 0; color: #475569;">{res_desc}</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            mid1, mid2 = st.columns([1, 2])
-            with mid1:
-                with st.container(border=True):
-                    st.write("**🛡 Робота з запереченнями**")
-                    if row.get("Заперечення_Були", "Ні") == "Так":
-                        obj_score = row.get('Робота_з_запереченнями_Бал', 0)
-                        st.markdown(f"<div style='color: {'#16A34A' if obj_score==2 else '#DC2626'}; font-weight: bold; margin-bottom: 8px;'>Оцінка відпрацювання: {obj_score}/2</div>", unsafe_allow_html=True)
-                        st.write(f"<span style='font-size: 14px;'>{row.get('Заперечення_Деталі', 'Деталі відсутні')}</span>", unsafe_allow_html=True)
-                    else:
-                        st.success("✅ Заперечень не було")
-
-            with mid2:
-                sc1, sc2 = st.columns(2)
-                with sc1:
-                    st.write("👍 **Твої сильні сторони**")
-                    items = str(row.get('Сильні_Сторони', '')).split('\n')
-                    has_items = False
-                    for item in items:
-                        clean = item.strip().replace("- ", "").replace("* ", "")
-                        if clean and clean.lower() not in ["немає", "ні", "-"]:
-                            st.markdown(f"<div class='check-item'>✓ {clean}</div>", unsafe_allow_html=True)
-                            has_items = True
-                    if not has_items: st.info("Не виявлено")
-                
-                with sc2:
-                    st.write("🚩 **Зони для росту**")
-                    items = str(row.get('Слабкі_Сторони', '')).split('\n')
-                    has_items = False
-                    for item in items:
-                        clean = item.strip().replace("- ", "").replace("* ", "")
-                        if clean and clean.lower() not in ["немає", "ні", "-"]:
-                            st.markdown(f"<div class='cross-item'>✕ {clean}</div>", unsafe_allow_html=True)
-                            has_items = True
-                    if not has_items: st.success("Не виявлено")
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                st.write("👍 **Твої сильні сторони**")
+                items = str(row.get('Сильні_Сторони', '')).split('\n')
+                has_items = False
+                for item in items:
+                    clean = item.strip().replace("- ", "").replace("* ", "")
+                    if clean and clean.lower() not in ["немає", "ні", "-"]:
+                        st.markdown(f"<div class='check-item'>✓ {clean}</div>", unsafe_allow_html=True); has_items = True
+                if not has_items: st.info("Не виявлено")
+            
+            with sc2:
+                st.write("🚩 **Зони для росту**")
+                items = str(row.get('Слабкі_Сторони', '')).split('\n')
+                has_items = False
+                for item in items:
+                    clean = item.strip().replace("- ", "").replace("* ", "")
+                    if clean and clean.lower() not in ["немає", "ні", "-"]:
+                        st.markdown(f"<div class='cross-item'>✕ {clean}</div>", unsafe_allow_html=True); has_items = True
+                if not has_items: st.success("Не виявлено")
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.info(f"**📢 Порада від ШІ:** {row.get('Порада_для_менеджера', 'Продовжуй в тому ж дусі!')}")
-                        
+
 # ==========================================
-# ВКЛАДКА 3: МОЯ ДИНАМІКА
+# ПАНЕЛЬ 3: МОЯ ДИНАМІКА (ТИ vs КОМПАНІЯ)
 # ==========================================
 with tab_trends:
-    st.markdown("### 📈 Твоя динаміка розвитку та конверсії")
-    if not df_personal.empty and "Дата" in df_personal.columns:
-        # Рахуємо середні бали та кількість дзвінків
-        trend_data = df_personal.groupby("Дата").agg({
-            "Hard_Бал": "mean", 
-            "Крос_сел": "mean",
-            "Екосистема": "mean", # <-- Додали розрахунок екосистеми
-            "Дзвінок": "count"
+    st.markdown("### 📈 Твоя динаміка vs Середнє по компанії")
+    if not df_personal.empty and "Дата" in df_personal.columns and not df_company_filtered.empty:
+        
+        # 1. Рахуємо тренди КОМПАНІЇ (Товста сіра лінія)
+        trend_comp = df_company_filtered.groupby("Дата").agg({
+            "Hard_Бал": "mean", "Крос_сел": "mean", "Екосистема": "mean", "Дзвінок": "count"
         }).reset_index()
-        
-        # Рахуємо конверсію
-        sales_data = df_personal[df_personal['ROOT_PROBLEM'] == 'Немає'].groupby("Дата").size().reset_index(name='Продажів')
-        trend_data = trend_data.merge(sales_data, on="Дата", how="left").fillna({'Продажів': 0})
-        trend_data['Конверсія_%'] = (trend_data['Продажів'] / trend_data['Дзвінок'] * 100).round(1)
-        
-        # --- НОВІ ГРАФІКИ ЗВЕРХУ (Крос-сел та Екосистема) ---
-        c1, c2 = st.columns(2)
+        sales_comp = df_company_filtered[df_company_filtered['ROOT_PROBLEM'] == 'Немає'].groupby("Дата").size().reset_index(name='Продажів')
+        trend_comp = trend_comp.merge(sales_comp, on="Дата", how="left").fillna({'Продажів': 0})
+        trend_comp['Конверсія_%'] = (trend_comp['Продажів'] / trend_comp['Дзвінок'] * 100).round(1)
+        trend_comp['Хто'] = 'Компанія (Середнє)'
+
+        # 2. Рахуємо тренди МЕНЕДЖЕРА (Яскрава лінія)
+        trend_me = df_personal.groupby("Дата").agg({
+            "Hard_Бал": "mean", "Крос_сел": "mean", "Екосистема": "mean", "Дзвінок": "count"
+        }).reset_index()
+        sales_me = df_personal[df_personal['ROOT_PROBLEM'] == 'Немає'].groupby("Дата").size().reset_index(name='Продажів')
+        trend_me = trend_me.merge(sales_me, on="Дата", how="left").fillna({'Продажів': 0})
+        trend_me['Конверсія_%'] = (trend_me['Продажів'] / trend_me['Дзвінок'] * 100).round(1)
+        trend_me['Хто'] = 'Ти (Менеджер)'
+
+        # Об'єднуємо для графіка
+        trend_combined = pd.concat([trend_comp, trend_me])
+
+        c1, c2, c3 = st.columns(3)
+        color_map = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#10B981'} # Зелений для конверсії
         with c1:
-            fig_cross = px.line(trend_data, x="Дата", y="Крос_сел", markers=True, title="Динаміка: Крос-сел (сер. бал)")
-            fig_cross.update_traces(line=dict(width=4, color='#F59E0B')) # Товста жовта лінія
-            fig_cross.update_yaxes(range=[-0.1, 2.1])
-            st.plotly_chart(fig_cross, use_container_width=True)
+            fig_c = px.line(trend_combined, x="Дата", y="Конверсія_%", color="Хто", markers=True, title="Конверсія у продаж (%)", color_discrete_map=color_map)
+            fig_c.update_traces(line=dict(width=3))
+            fig_c.update_yaxes(range=[0, 100])
+            st.plotly_chart(fig_c, use_container_width=True)
             
+        color_map_cross = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#F59E0B'} # Жовтий для крос-селу
         with c2:
-            fig_eco = px.line(trend_data, x="Дата", y="Екосистема", markers=True, title="Динаміка: Екосистема (сер. бал)")
-            fig_eco.update_traces(line=dict(width=4, color='#8B5CF6')) # Товста фіолетова лінія
-            fig_eco.update_yaxes(range=[-0.1, 2.1])
-            st.plotly_chart(fig_eco, use_container_width=True)
+            fig_cr = px.line(trend_combined, x="Дата", y="Крос_сел", color="Хто", markers=True, title="Крос-сел (сер. бал)", color_discrete_map=color_map_cross)
+            fig_cr.update_traces(line=dict(width=3))
+            fig_cr.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig_cr, use_container_width=True)
             
-        st.markdown("<hr style='margin: 20px 0;'>", unsafe_allow_html=True)
-        
-        # --- СТАРІ ГРАФІКИ ЗНИЗУ (Конверсія та Hard_Бал) ---
-        col_t1, col_t2 = st.columns(2)
-        with col_t1:
-            fig_conv_personal = px.line(trend_data, x="Дата", y="Конверсія_%", markers=True, title="Моя конверсія у продаж (%)", color_discrete_sequence=['#10B981'])
-            fig_conv_personal.update_traces(line=dict(width=3))
-            fig_conv_personal.update_yaxes(range=[0, 100]) # <--- ДОДАНО ФІКСАЦІЮ
-            st.plotly_chart(fig_conv_personal, use_container_width=True)
-            
-        with col_t2:
-            fig_personal = px.line(trend_data, x="Дата", y="Hard_Бал", markers=True, title="Мій прогрес (Середній Hard Бал)", color_discrete_sequence=['#3B82F6'])
-            fig_personal.update_traces(line=dict(width=3))
-            st.plotly_chart(fig_personal, use_container_width=True)
+        color_map_eco = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#8B5CF6'} # Фіолетовий для екосистеми
+        with c3:
+            fig_e = px.line(trend_combined, x="Дата", y="Екосистема", color="Хто", markers=True, title="Екосистема (сер. бал)", color_discrete_map=color_map_eco)
+            fig_e.update_traces(line=dict(width=3))
+            fig_e.update_yaxes(range=[-0.1, 2.1])
+            st.plotly_chart(fig_e, use_container_width=True)
     else:
-        st.info("Потрібно більше закритих днів з даними, щоб побудувати графіки.")
+        st.info("Потрібно більше даних для побудови графіків динаміки.")
+
+# ==========================================
+# ПАНЕЛЬ 4: МАТРИЦЯ НАВИЧОК (РАДАР)
+# ==========================================
+with tab_coach:
+    st.markdown("### 🎓 Твій профіль навичок (Радар)")
+    
+    skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Привітність', 'Ввічливість', 'Емпатія']
+    existing_skills = [c for c in skill_cols if c in df_personal.columns and c in df_company_filtered.columns]
+    
+    if existing_skills and not df_personal.empty:
+        # Рахуємо середні бали
+        my_scores = df_personal[existing_skills].mean().values.tolist()
+        company_scores = df_company_filtered[existing_skills].mean().values.tolist()
+        
+        # Замикаємо коло для радару (перший елемент в кінець)
+        categories = existing_skills + [existing_skills[0]]
+        my_scores_closed = my_scores + [my_scores[0]]
+        company_scores_closed = company_scores + [company_scores[0]]
+
+        fig_radar = go.Figure()
+        
+        # Лінія компанії (сіра, зафарбована легко)
+        fig_radar.add_trace(go.Scatterpolar(
+            r=company_scores_closed, theta=categories, fill='toself', name='Середнє по компанії',
+            line_color='#94A3B8', fillcolor='rgba(148, 163, 184, 0.2)'
+        ))
+        
+        # Лінія менеджера (яскраво-синя)
+        fig_radar.add_trace(go.Scatterpolar(
+            r=my_scores_closed, theta=categories, fill='toself', name='Твій результат',
+            line_color='#3B82F6', fillcolor='rgba(59, 130, 246, 0.4)'
+        ))
+
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0, 2])),
+            showlegend=True, height=500, title="Аналіз сильних та слабких сторін"
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
+        
+        st.info("💡 **Як читати графік:** Край павутини — це ідеальні 2 бали. Сіра зона — як продає компанія в середньому. Синя зона — твій стиль продажів. Якщо синій кут виходить за межі сірого — ти крутіший за колег!")
+    else:
+        st.warning("Недостатньо даних для побудови профілю навичок.")

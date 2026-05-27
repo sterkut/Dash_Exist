@@ -8,16 +8,27 @@ st.set_page_config(page_title="allogarage.ai | EXIST.UA", layout="wide", initial
 
 st.markdown("""
 <style>
+    /* Преміальний темний дизайн */
     .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 95%; }
-    .stApp { background-color: #F8F9FA; color: #1E293B; }
-    h1, h2, h3 { font-weight: 800; color: #0F172A; }
-    [data-testid="stMetricValue"] { font-size: 2.2rem; font-weight: 800; color: #DC2626; }
-    [data-testid="stMetricLabel"] { font-weight: 600; color: #64748B; text-transform: uppercase; }
-    .stTabs [data-baseweb="tab-list"] { gap: 20px; }
-    .stTabs [data-baseweb="tab"] { padding-top: 10px; padding-bottom: 10px; font-size: 1.2rem; font-weight: 600; }
-    .card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .check-item { color: #166534; background: #F0FDF4; padding: 8px; border-radius: 6px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; font-weight: 500; }
-    .cross-item { color: #991B1B; background: #FEF2F2; padding: 8px; border-radius: 6px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+    .stApp { background-color: #0A0F1C; color: #E2E8F0; }
+    h1, h2, h3 { font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px; }
+    
+    /* Світіння метрик */
+    [data-testid="stMetricValue"] { font-size: 2.5rem; font-weight: 800; color: #FFFFFF; text-shadow: 0 0 15px rgba(255, 255, 255, 0.15); }
+    [data-testid="stMetricLabel"] { font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* Вкладки (Tabs) */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: transparent; border-bottom: none; }
+    .stTabs [data-baseweb="tab"] { padding: 12px 20px; font-size: 1.1rem; font-weight: 600; border-radius: 30px; color: #94A3B8; background-color: #111827; border: 1px solid rgba(255, 255, 255, 0.05); margin-right: 5px; }
+    .stTabs [aria-selected="true"] { background-color: #8B5CF6 !important; color: #FFFFFF !important; border-color: #8B5CF6 !important; box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
+    
+    /* Скляні картки (Glassmorphism) */
+    .card { background: linear-gradient(145deg, #111827, #0F172A); border-radius: 20px; padding: 24px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+    
+    /* Значки результатів */
+    .check-item { color: #A3E635; background: rgba(163, 230, 53, 0.1); padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; font-weight: 600; border: 1px solid rgba(163, 230, 53, 0.2); }
+    .cross-item { color: #F87171; background: rgba(248, 113, 113, 0.1); padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; font-weight: 600; border: 1px solid rgba(248, 113, 113, 0.2); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -41,13 +52,11 @@ def load_data():
         if "Дата" in df.columns:
             df["Дата"] = pd.to_datetime(df["Дата"], errors='coerce').dt.date
             
-        # Усі навички перетворюємо на числа. Додано "Виявлення_Потреби"!
         skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Робота_з_запереченнями_Бал']
         for col in skill_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 
-        # Hard_Бал та Soft_Бал залишаємо з нулями, якщо там пусто
         if 'Hard_Бал' in df.columns: df['Hard_Бал'] = pd.to_numeric(df['Hard_Бал'], errors='coerce').fillna(0)
         if 'Soft_Бал' in df.columns: df['Soft_Бал'] = pd.to_numeric(df['Soft_Бал'], errors='coerce').fillna(0)
     return df
@@ -62,11 +71,11 @@ if df.empty:
 with st.sidebar:
     st.markdown(
         """
-        <div style="text-align: center; padding: 10px; border-bottom: 2px solid #f0f2f6; margin-bottom: 15px;">
-            <h1 style="color: #1E3A8A; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28px; letter-spacing: 1px; margin-bottom: 0;">
-                allogarage<span style="color: #3B82F6;">.ai</span>
+        <div style="text-align: center; padding: 10px; border-bottom: 2px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
+            <h1 style="color: #FFFFFF; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28px; letter-spacing: 1px; margin-bottom: 0;">
+                allogarage<span style="color: #8B5CF6;">.ai</span>
             </h1>
-            <p style="color: #6B7280; font-size: 12px; font-weight: 500; text-transform: uppercase; margin-top: 5px;">
+            <p style="color: #94A3B8; font-size: 12px; font-weight: 500; text-transform: uppercase; margin-top: 5px;">
                 ШІ-аудит відділу продажів
             </p>
         </div>
@@ -80,71 +89,54 @@ with st.sidebar:
 
     st.markdown("### 🎛 Фільтри")
     
-    # 1. ПРАПОРЕЦЬ СКАРГ (Тепер він головний і стоїть першим)
     if "Тон_Розмови" in df.columns:
         show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False)
-        if show_complaints:
-            st.info("⚠️ Інші фільтри заморожено. Показано всі скарги.")
-    else:
-        show_complaints = False
+        if show_complaints: st.info("⚠️ Інші фільтри заморожено. Показано всі скарги.")
+    else: show_complaints = False
 
-    # 2. МЕНЕДЖЕРИ (Додано disabled=show_complaints до всіх фільтрів)
     managers_list = sorted(df["Менеджер"].dropna().unique()) if "Менеджер" in df.columns else []
     selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list, disabled=show_complaints)
-    
     df_step1 = df[df["Менеджер"].isin(selected_managers)] if selected_managers else df
     
-    # 3. ТИП ДЗВІНКА
     if "Тип_Дзвінка" in df_step1.columns:
         types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
         default_types = [t for t in types_list if str(t) != "Холодний"]
-        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types, disabled=show_complaints)
+        selected_types = st.multiselect("📞 Тип дзвінка", types_list, default=default_types, disabled=show_complaints)
         df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
 
-    # 4. НАПРЯМОК
     if "Вх_Вих" in df_step1.columns:
         dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
         selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints)
         df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
     
-    # 5. ГОТОВНІСТЬ
     intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
     default_intents = [i for i in intents_list if str(i) != "Low"]
     selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents, disabled=show_complaints)
     df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
 
-    # 6. ПЕРЕМИКАННЯ
     if "Було_Перемикання" in df_step2.columns:
         transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
         selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list, disabled=show_complaints)
         df_step3 = df_step2[df_step2["Було_Перемикання"].isin(selected_transfers)] if selected_transfers else df_step2
-    else:
-        df_step3 = df_step2
+    else: df_step3 = df_step2
 
-    # 7. РЕЗУЛЬТАТ РОЗМОВИ
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
     if res_col in df_step3.columns:
         res_list = sorted(df_step3[res_col].dropna().unique())
         selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints)
         df_step4 = df_step3[df_step3[res_col].isin(selected_res)] if selected_res else df_step3
-    else:
-        df_step4 = df_step3
+    else: df_step4 = df_step3
 
-    # 8. ПРИЧИНА ВТРАТИ
     root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
     selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints)
     df_step5 = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
 
-    # --- МАГІЯ ДАНИХ ДЛЯ СКАРГ ---
     if show_complaints:
-        # Якщо прапорець увімкнено, беремо дані з ГОЛОВНОГО df, ігноруючи всі фільтри
         df_filtered = df[df["Тон_Розмови"].astype(str).str.startswith("Скарга")]
     else:
-        # Якщо вимкнено, беремо дані, які пройшли через усі фільтри
         df_filtered = df_step5
 
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("### 💰 Фінансові параметри")
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     st.markdown("### 💰 Фінансові параметри")
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
     
@@ -152,13 +144,13 @@ with st.sidebar:
     avg_cross_check = st.number_input("Середній чек доп. товару (грн)", value=150, step=10)
     cross_conv = st.slider("Конверсія у доп. продаж (%)", 0, 100, 10)
     
-    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     if "Тривалість_хв" in df_filtered.columns:
         total_min = df_filtered["Тривалість_хв"].sum()
         st.metric("⏱ Опрацьовано аудіо", f"{total_min:,.1f} хв")
 
 # ==========================================
-# 🛑 МАТЕМАТИКА (ПОЗА САЙДБАРОМ)
+# 🛑 МАТЕМАТИКА
 # ==========================================
 intent_weights = {"High": 1.0, "Medium": 0.5, "Low": 0.0}
 df_filtered['Потенціал_грн'] = df_filtered['Готовність'].map(intent_weights).fillna(0) * avg_check
@@ -173,7 +165,7 @@ tab_home, tab_analytics, tab_ceo, tab_history, tab_trends, tab_coach = st.tabs([
 ])
 
 # ==========================================
-# ПАНЕЛЬ 0: ГОЛОВНА (ОГЛЯД)
+# ПАНЕЛЬ 0: ГОЛОВНА
 # ==========================================
 with tab_home:
     total_calls = len(df_filtered)
@@ -210,12 +202,12 @@ with tab_home:
             
             for _, mgr in top_mgrs.iterrows():
                 st.markdown(f"""
-                    <div style='background: #F0FDF4; padding: 15px; border-radius: 12px; border-left: 5px solid #22C55E; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
+                    <div style='background: rgba(34, 197, 94, 0.05); padding: 15px; border-radius: 12px; border-left: 5px solid #22C55E; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.02);'>
                         <div style='display: flex; justify-content: space-between; align-items: center;'>
-                            <span style='font-weight: 800; color: #166534; font-size: 17px;'>{mgr['Менеджер']}</span>
-                            <span style='background: #DCFCE7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
+                            <span style='font-weight: 800; color: #A3E635; font-size: 17px;'>{mgr['Менеджер']}</span>
+                            <span style='background: rgba(34, 197, 94, 0.1); color: #A3E635; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
                         </div>
-                        <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
+                        <div style='margin-top: 5px; color: #94A3B8; font-size: 14px;'>
                             <b>{mgr['Продажів']}</b> продажів з <b>{mgr['Дзвінків']}</b> дзвінків
                         </div>
                     </div>
@@ -227,285 +219,162 @@ with tab_home:
             
             if low_mgrs.empty:
                 st.markdown(f"""
-                    <div style='background: #F8FAFC; padding: 30px; border-radius: 12px; border: 1px dashed #CBD5E1; text-align: center; margin-bottom: 12px;'>
+                    <div style='background: rgba(255,255,255,0.02); padding: 30px; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1); text-align: center; margin-bottom: 12px;'>
                         <div style='font-size: 40px; margin-bottom: 10px;'>😊</div>
-                        <h4 style='color: #0F172A; margin: 0;'>Всі менеджери працюють добре!</h4>
-                        <p style='color: #64748B; margin: 5px 0 0 0; font-size: 14px;'>Немає менеджерів з оцінкою нижче 4.0</p>
+                        <h4 style='color: #E2E8F0; margin: 0;'>Всі менеджери працюють добре!</h4>
                     </div>
                 """, unsafe_allow_html=True)
             else:
                 for _, mgr in low_mgrs.iterrows():
                     st.markdown(f"""
-                        <div style='background: #FFF7ED; padding: 15px; border-radius: 12px; border-left: 5px solid #F97316; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
+                        <div style='background: rgba(245, 158, 11, 0.05); padding: 15px; border-radius: 12px; border-left: 5px solid #F59E0B; margin-bottom: 12px;'>
                             <div style='display: flex; justify-content: space-between; align-items: center;'>
-                                <span style='font-weight: 800; color: #9A3412; font-size: 17px;'>{mgr['Менеджер']}</span>
-                                <span style='background: #FFEDD5; color: #9A3412; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
+                                <span style='font-weight: 800; color: #FBBF24; font-size: 17px;'>{mgr['Менеджер']}</span>
+                                <span style='background: rgba(245, 158, 11, 0.1); color: #FBBF24; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;'>Бал: {mgr['Сер_Хард']:.1f}</span>
                             </div>
-                            <div style='margin-top: 5px; color: #374151; font-size: 14px;'>
-                                Потребує аналізу <b>{mgr['Дзвінків']}</b> розмов | Продажів: <b>{mgr['Продажів']}</b>
+                            <div style='margin-top: 5px; color: #94A3B8; font-size: 14px;'>
+                                Аналіз <b>{mgr['Дзвінків']}</b> розмов | Продажів: <b>{mgr['Продажів']}</b>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
-    else:
-        st.info("Виберіть дані у фільтрах зліва, щоб побачити огляд.")
 
 # ==========================================
-# ПАНЕЛЬ 1: АНАЛІТИКА ТА ЕФЕКТИВНІСТЬ
+# ПАНЕЛЬ 1: АНАЛІТИКА
 # ==========================================
 with tab_analytics:
     st.markdown("### 📊 Аналітика результатів та конверсія")
     
     col_d1, col_d2 = st.columns(2)
-    
     with col_d1:
         res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_filtered.columns else 'Результат_Розмови'
         if res_col in df_filtered.columns:
             def clean_status(val):
                 s = str(val).lower()
-                if any(k in s for k in ['viber', 'вайбер', 'telegram', 'телеграм', 'месенджер']):
-                    return 'Перехід у месенджер'
-                elif any(k in s for k in ['відмов', 'скасовано', 'немає']):
-                    return 'Відмова'
-                elif any(k in s for k in ['думає', 'порадить', 'вирішує', 'замір']):
-                    return 'Клієнт думає'
-                elif any(k in s for k in ['передзвон', 'зв\'яз']):
-                    return 'Домовились передзвонити'
-                elif any(k in s for k in ['сервіс', 'консультац', 'уточнення']):
-                    return 'Сервісний дзвінок'
-                elif any(k in s for k in ['оформ', 'підтверд', 'роботі', 'змінено', 'скоригов', 'продаж', 'купив', 'успіш']):
-                    return 'Продаж закрито'
-                else:
-                    return val
+                if any(k in s for k in ['viber', 'вайбер', 'telegram']): return 'Перехід у месенджер'
+                elif any(k in s for k in ['відмов', 'скасовано', 'немає']): return 'Відмова'
+                elif any(k in s for k in ['думає', 'порадить', 'вирішує']): return 'Клієнт думає'
+                elif any(k in s for k in ['передзвон', 'зв\'яз']): return 'Домовились передзвонити'
+                elif any(k in s for k in ['сервіс', 'консультац', 'уточнення']): return 'Сервісний дзвінок'
+                elif any(k in s for k in ['оформ', 'підтверд', 'роботі', 'змінено', 'продаж']): return 'Продаж закрито'
+                else: return val
 
             cleaned_series = df_filtered[res_col].apply(clean_status)
             res_counts = cleaned_series.value_counts().reset_index()
             res_counts.columns = ['Результат', 'Кількість']
             
-            fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4,
-                             title="Структура результатів розмов",
-                             color_discrete_sequence=px.colors.qualitative.Safe)
-            fig_res.update_traces(textposition='inside', textinfo='percent+label')
+            fig_res = px.pie(res_counts, values='Кількість', names='Результат', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_res.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#94A3B8')
+            fig_res.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#0A0F1C', width=2)))
             st.plotly_chart(fig_res, use_container_width=True)
-        else:
-            st.info("Немає даних про результати розмов.")
             
     with col_d2:
         total_calls = len(df_filtered)
         success_steps = (df_filtered['Зафіксував_Наступний_Крок'] == 'Так').sum() if 'Зафіксував_Наступний_Крок' in df_filtered.columns else 0
         closed_sales = (df_filtered['ROOT_PROBLEM'] == 'Немає').sum()
-        conv_rate = (closed_sales / total_calls * 100) if total_calls > 0 else 0
-        
-        st.markdown("### 🎯 Конверсія у продаж")
-        st.markdown(f"<p style='color: #64748B; font-size: 15px; margin-top: -15px;'>Реальна конверсія: {conv_rate:.1f}% дзвінків завершились продажем</p>", unsafe_allow_html=True)
         
         conv_plot_df = pd.DataFrame({
             'Етап': ['Всі дзвінки', 'Успішні угоди', 'Продажів закрито'],
-            'Кількість': [total_calls, success_steps, closed_sales],
-            'Колір': ['#94A3B8', '#3B82F6', '#10B981'] 
+            'Кількість': [total_calls, success_steps, closed_sales]
         })
         
-        fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість',
-                          color='Етап', color_discrete_map={
-                              'Всі дзвінки': '#94A3B8', 
-                              'Успішні угоди': '#3B82F6', 
-                              'Продажів закрито': '#10B981'
-                          })
-        
-        fig_conv.update_layout(showlegend=False, height=350, margin=dict(t=10, b=0, l=0, r=0),
-                               xaxis_title=None, yaxis_title=None)
-        fig_conv.update_traces(textposition='outside', textfont_size=14, textfont_color='#1E293B')
-        
+        fig_conv = px.bar(conv_plot_df, x='Етап', y='Кількість', text='Кількість', color='Етап', color_discrete_map={'Всі дзвінки': '#64748B', 'Успішні угоди': '#3B82F6', 'Продажів закрито': '#10B981'})
+        fig_conv.update_layout(showlegend=False, height=350, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#94A3B8', yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'))
+        fig_conv.update_traces(textposition='outside', textfont_color='#E2E8F0', marker_line_width=0)
         st.plotly_chart(fig_conv, use_container_width=True)
 
     st.markdown("---")
     st.markdown("### 👤 Показники менеджерів")
-
-    if 'Менеджер' in df_filtered.columns and 'Hard_Бал' in df_filtered.columns and 'ROOT_PROBLEM' in df_filtered.columns:
+    if 'Менеджер' in df_filtered.columns:
         df_stats = df_filtered.copy()
-        df_stats['Hard_Бал'] = pd.to_numeric(df_stats['Hard_Бал'], errors='coerce').fillna(0)
-
         mgr_stats = df_stats.groupby("Менеджер").agg(
             Кількість_дзвінків=('Дзвінок', 'count'),
             Середній_Хард=('Hard_Бал', 'mean'),
-            Найвищий_Хард=('Hard_Бал', 'max'),
             Продажів_шт=('ROOT_PROBLEM', lambda x: (x == 'Немає').sum()),
             Відмов_шт=('ROOT_PROBLEM', lambda x: (x != 'Немає').sum())
         ).reset_index()
-
-        mgr_stats = mgr_stats.rename(columns={'Менеджер': 'Прізвище'})
         mgr_stats['Конверсія_%'] = (mgr_stats['Продажів_шт'] / mgr_stats['Кількість_дзвінків'] * 100).round(1)
-
-        styled_mgr = mgr_stats.style.format({
-            'Середній_Хард': '{:.1f}',
-            'Найвищий_Хард': '{:.0f}',
-            'Конверсія_%': '{:.1f}%'
-        })\
-        .set_properties(subset=['Продажів_шт'], **{'font-weight': 'bold'})\
-        .set_properties(subset=['Відмов_шт'], **{'font-weight': 'bold', 'color': '#DC2626'})\
-        .background_gradient(cmap='Greens', subset=['Конверсія_%'])
-
-        st.dataframe(styled_mgr, use_container_width=True, hide_index=True)
-    else:
-        st.warning("Недостатньо колонок для побудови статистики менеджерів.")
+        
+        # Використовуємо звичайний dataframe для темної теми без конфліктних градієнтів
+        st.dataframe(mgr_stats.style.format({'Середній_Хард': '{:.1f}', 'Конверсія_%': '{:.1f}%'}), use_container_width=True, hide_index=True)
 
 # ==========================================
-# ПАНЕЛЬ 2: CEO (Гроші та Ефективність)
+# ПАНЕЛЬ 2: CEO (Гроші)
 # ==========================================
 with tab_ceo:
     st.markdown("""
-        <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #F1F5F9; padding-bottom: 10px;">📊 Ключові показники втрат та ефективності</h3>
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; margin-bottom: 25px;">
+            <h3 style="margin-top: 0; color: #E2E8F0; font-size: 20px;">📊 Ключові показники втрат</h3>
         </div>
     """, unsafe_allow_html=True)
 
     total_lost_main = df_filtered["Втрачено_Головна"].sum()
     total_lost_cross = df_filtered["Втрачено_Крос"].sum()
-    total_lost_all = df_filtered["Втрачено_грн"].sum()
     
-    hot_med_deals = df_filtered[df_filtered['Готовність'].isin(['High', 'Medium'])]
-    hot_med_total = len(hot_med_deals)
-    hot_med_lost = len(hot_med_deals[hot_med_deals['ROOT_PROBLEM'] != 'Немає'])
-    hot_loss_rate = (hot_med_lost / hot_med_total * 100) if hot_med_total > 0 else 0
-
-    success_deals = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає']
-    missed_cross_count = len(success_deals[success_deals['Спроба_Крос_Селу'] == 'Ні'])
-    missed_cross_rate = (missed_cross_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
-    
-    if 'Екосистема' in success_deals.columns:
-        eco_scores = pd.to_numeric(success_deals['Екосистема'], errors='coerce').fillna(0)
-        missed_eco_count = len(success_deals[eco_scores == 0])
-    else:
-        missed_eco_count = 0
-    missed_eco_rate = (missed_eco_count / len(success_deals) * 100) if len(success_deals) > 0 else 0
-
     m_col1, m_col2, m_col3 = st.columns(3)
-    m_col1.metric("🔥 ЗАГАЛЬНІ ВТРАТИ", f"{total_lost_all:,.0f} ₴")
+    m_col1.metric("🔥 ЗАГАЛЬНІ ВТРАТИ", f"{total_lost_main + total_lost_cross:,.0f} ₴")
     m_col2.metric("💰 Втрати (Основні)", f"{total_lost_main:,.0f} ₴")
     m_col3.metric("📦 Втрати (Крос-сел)", f"{total_lost_cross:,.0f} ₴")
 
-    st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
-
-    p_col1, p_col2, p_col3 = st.columns(3)
-    p_col1.metric("📉 % втрат ГАРЯЧИХ", f"{hot_loss_rate:.0f}%", help="Відсоток клієнтів з High/Medium готовністю, які нічого не купили")
-    p_col2.metric("🛒 % без CROSS-SELL", f"{missed_cross_rate:.0f}%", help="Відсоток успішних угод, де менеджер не запропонував супутній товар")
-    p_col3.metric("🌐 % без ЕКОСИСТЕМИ", f"{missed_eco_rate:.0f}%", help="Відсоток успішних угод, де не було пропозиції сервісів екосистеми")
-
-    st.markdown("<hr style='margin: 30px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
     
     row1_col1, row1_col2 = st.columns([1.2, 1])
-    
     with row1_col1:
-        st.markdown("### 🎯 Причини втрат (включаючи недоотриманий крос-сел)")
-        reasons_data = df_filtered[df_filtered['Втрачено_грн'] > 0].groupby('ROOT_PROBLEM')['Втрачено_грн'].sum().reset_index()
-        if total_lost_cross > 0:
-            reasons_data.loc[reasons_data['ROOT_PROBLEM'] == 'Немає', 'ROOT_PROBLEM'] = 'Відсутність Крос-селу'
-        reasons_data = reasons_data.sort_values(by='Втрачено_грн', ascending=False).head(5)
-        
+        st.markdown("### 🎯 Причини втрат")
+        reasons_data = df_filtered[df_filtered['Втрачено_грн'] > 0].groupby('ROOT_PROBLEM')['Втрачено_грн'].sum().reset_index().sort_values(by='Втрачено_грн', ascending=False).head(5)
         if not reasons_data.empty:
-            fig_reasons = px.bar(reasons_data, x='Втрачено_грн', y='ROOT_PROBLEM', orientation='h', 
-                                 color='Втрачено_грн', color_continuous_scale='Reds',
-                                 labels={'Втрачено_грн': 'Втрати в гривнях', 'ROOT_PROBLEM': 'Причина'})
-            fig_reasons.update_layout(showlegend=False, height=350, margin=dict(t=0, b=0, l=0, r=0))
+            fig_reasons = px.bar(reasons_data, x='Втрачено_грн', y='ROOT_PROBLEM', orientation='h', color_discrete_sequence=['#EF4444'])
+            fig_reasons.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#94A3B8', xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'))
             st.plotly_chart(fig_reasons, use_container_width=True)
-        else:
-            st.success("Втрат немає!")
 
     with row1_col2:
-        st.markdown("### 🚨 Рейтинг фінансових втрат")
+        st.markdown("### 🚨 Рейтинг втрат")
         manager_loss = df_filtered.groupby("Менеджер")['Втрачено_грн'].sum().reset_index().sort_values("Втрачено_грн", ascending=False)
-        styled_loss = manager_loss.style.format({'Втрачено_грн': '{:,.0f}'}) \
-            .background_gradient(cmap='Reds', subset=['Втрачено_грн'])
-        st.dataframe(styled_loss, use_container_width=True, hide_index=True)
-
-    st.markdown("<br>### 🔎 Деталізація втрат та інсайти для СЕО", unsafe_allow_html=True)
-    
-    lost_deals_df = df_filtered[df_filtered['ROOT_PROBLEM'] != 'Немає'].copy()
-    
-    if not lost_deals_df.empty:
-        cols_to_show = ['Менеджер', 'Дзвінок', 'Готовність', 'ROOT_PROBLEM', 'Втрачено_грн', 'Інсайт_для_CEO']
-        st.dataframe(lost_deals_df[cols_to_show], use_container_width=True, hide_index=True)
-    else:
-        st.success("Втрат не виявлено! Всі угоди успішні.")
+        st.dataframe(manager_loss.style.format({'Втрачено_грн': '{:,.0f}'}), use_container_width=True, hide_index=True)
 
 # ==========================================
-# ПАНЕЛЬ 3: ІСТОРІЯ ТА КАРТКА ДЗВІНКА
+# ПАНЕЛЬ 3: ІСТОРІЯ ТА КАРТКА
 # ==========================================
 with tab_history:
     st.markdown("### 🎧 Історія дзвінків")
-    st.write("Виділіть рядок у таблиці нижче, щоб переглянути детальний аналіз.")
-    
-    res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_filtered.columns else "Результат_Розмови"
-    
-    cols_to_list = ["Дата", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
+    cols_to_list = ["Дата", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", "Результат_Розмови_Заголовок", "Hard_Бал"]
     cols_to_list = [c for c in cols_to_list if c in df_filtered.columns]
     
     try:
-        event = st.dataframe(
-            df_filtered[cols_to_list],
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row",
-            height=250
-        )
+        event = st.dataframe(df_filtered[cols_to_list], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", height=250)
         selected_indices = event.selection.rows
     except:
-        st.warning("⚠️ Оновіть Streamlit (`pip install --upgrade streamlit`), щоб таблиця стала клікабельною.")
-        display_names = df_filtered.apply(lambda r: f"{r.get('Дата','')} | {r.get('Менеджер','')} | {r['Дзвінок']}", axis=1).tolist()
-        file_mapping = dict(zip(display_names, df_filtered['Дзвінок']))
-        selected_display = st.selectbox("Оберіть файл дзвінка:", [""] + display_names)
-        selected_indices = [df_filtered.index[df_filtered['Дзвінок'] == file_mapping[selected_display]].tolist()[0]] if selected_display else []
+        selected_indices = []
 
     if selected_indices:
-        if isinstance(selected_indices[0], int) and selected_indices[0] < len(df_filtered):
-             row = df_filtered.iloc[selected_indices[0]]
-        else:
-             row = df_filtered.loc[selected_indices[0]]
+        row = df_filtered.iloc[selected_indices[0]] if isinstance(selected_indices[0], int) else df_filtered.loc[selected_indices[0]]
 
         st.markdown("---")
-        
-        # --- БЛОК: АУДІО ПЛЕЄР ---
         col_hdr1, col_hdr2 = st.columns([2, 1])
-        with col_hdr1:
-            st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
+        with col_hdr1: st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', '')}")
         with col_hdr2:
-            if "Посилання_на_аудіо" in row and pd.notna(row['Посилання_на_аудіо']):
-                st.audio(row['Посилання_на_аудіо'])
-            else:
-                st.caption("Аудіозапис недоступний")
-        # -------------------------------
-
-        # --- БЛОК: ЛОГІКА АНАЛІЗУ ---
+            if "Посилання_на_аудіо" in row and pd.notna(row['Посилання_на_аудіо']): st.audio(row['Посилання_на_аудіо'])
+            
         if "Логіка_Аналізу" in row and pd.notna(row['Логіка_Аналізу']):
-            with st.expander("🤖 Логіка прийняття рішення ШІ (Chain of Thought)"):
-                st.write(row['Логіка_Аналізу'])
-        # -------------------------------
+            with st.expander("🤖 Логіка прийняття рішення ШІ"): st.write(row['Логіка_Аналізу'])
         
         top1, top2, top3 = st.columns(3)
-        
         with top1:
             score = float(row.get('Hard_Бал', 0))
-            if score >= 8:
-                score_color, score_text, bg_color = "#16A34A", "Відмінно", "#BBF7D0"
-            elif score >= 5:
-                score_color, score_text, bg_color = "#F59E0B", "Задовільно", "#FDE68A"
-            elif score >= 3:
-                score_color, score_text, bg_color = "#EF4444", "Потребує уваги", "#FECACA"
-            else:
-                score_color, score_text, bg_color = "#991B1B", "Критично", "#FCA5A5"
+            if score >= 8: score_color, score_text, bg_color = "#A3E635", "Відмінно", "rgba(163, 230, 53, 0.1)"
+            elif score >= 5: score_color, score_text, bg_color = "#FBBF24", "Задовільно", "rgba(251, 191, 36, 0.1)"
+            elif score >= 3: score_color, score_text, bg_color = "#F87171", "Потребує уваги", "rgba(248, 113, 113, 0.1)"
+            else: score_color, score_text, bg_color = "#EF4444", "Критично", "rgba(239, 68, 68, 0.2)"
 
             deg = (score / 10) * 360
-            
             st.markdown(f"""
                 <div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <p style="color: #64748B; margin-bottom: 10px; font-weight: 600; font-size: 13px;">HARD SKILLS (ОЦІНКА)</p>
-                    <div style="width: 90px; height: 90px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, #E2E8F0 0deg); display: flex; justify-content: center; align-items: center; margin-bottom: 10px;">
-                        <div style="width: 72px; height: 72px; border-radius: 50%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            <span style="font-size: 26px; font-weight: 800; color: #0F172A; line-height: 1;">{score:.1f}</span>
-                            <span style="font-size: 12px; color: #64748B; font-weight: 600;">з 10</span>
+                    <p style="color: #94A3B8; margin-bottom: 10px; font-weight: 600; font-size: 13px;">HARD SKILLS</p>
+                    <div style="width: 90px; height: 90px; border-radius: 50%; background: conic-gradient({score_color} {deg}deg, rgba(255,255,255,0.05) 0deg); display: flex; justify-content: center; align-items: center; margin-bottom: 10px;">
+                        <div style="width: 72px; height: 72px; border-radius: 50%; background: #0A0F1C; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <span style="font-size: 26px; font-weight: 800; color: #FFFFFF; line-height: 1; text-shadow: 0 0 10px {score_color};">{score:.1f}</span>
                         </div>
                     </div>
-                    <div style="background: {bg_color}; color: {score_color}; border-radius: 20px; font-weight: bold; display: inline-block; padding: 4px 12px; font-size: 13px;">{score_text}</div>
+                    <div style="background: {bg_color}; color: {score_color}; border-radius: 20px; font-weight: bold; padding: 4px 12px; font-size: 13px; border: 1px solid {score_color}40;">{score_text}</div>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -513,74 +382,60 @@ with tab_history:
             intent = row.get('Готовність', 'N/A')
             st.markdown(f"""
                 <div class="card" style="height: 100%; text-align: center; display: flex; flex-direction: column; justify-content: center;">
-                    <p style="color: #64748B; margin-bottom: 5px; font-weight: 600; font-size: 13px;">ГОТОВНІСТЬ КЛІЄНТА</p>
-                    <h1 style="color: #1E3A8A; margin: 10px 0; font-size: 32px;">{intent}</h1>
+                    <p style="color: #94A3B8; margin-bottom: 5px; font-weight: 600; font-size: 13px;">ГОТОВНІСТЬ КЛІЄНТА</p>
+                    <h1 style="color: #8B5CF6; margin: 10px 0; font-size: 32px; text-shadow: 0 0 15px rgba(139, 92, 246, 0.3);">{intent}</h1>
                 </div>
             """, unsafe_allow_html=True)
 
         with top3:
             soft = int(row.get('Soft_Бал', 0))
-            tone = str(row.get('Тон_Розмови', 'Дані відсутні'))
-            
-            # ВІЗУАЛІЗАЦІЯ СКАРГИ (ЧЕРВОНИЙ ФОН)
+            tone = str(row.get('Тон_Розмови', ''))
             is_complaint = tone.startswith("Скарга")
-            tone_bg = "#FEF2F2" if is_complaint else "#ffffff"
-            tone_border = "#FECACA" if is_complaint else "#E2E8F0"
-            tone_text_color = "#991B1B" if is_complaint else "#334155"
-            tone_title_color = "#DC2626" if is_complaint else "#64748B"
+            
+            tone_bg = "rgba(239, 68, 68, 0.05)" if is_complaint else "rgba(255,255,255,0.02)"
+            tone_border = "rgba(239, 68, 68, 0.3)" if is_complaint else "rgba(255,255,255,0.05)"
+            tone_text_color = "#F87171" if is_complaint else "#E2E8F0"
+            tone_title_color = "#EF4444" if is_complaint else "#94A3B8"
             
             st.markdown(f"""
-                <div class="card" style="height: 100%; background-color: {tone_bg}; border-color: {tone_border};">
+                <div class="card" style="height: 100%; background: {tone_bg}; border-color: {tone_border};">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <p style="color: {tone_title_color}; margin: 0; font-weight: 800; font-size: 13px;">{'🚨 АЛАРМ: СКАРГА' if is_complaint else 'ТОН РОЗМОВИ'}</p>
-                        <span style="background: #F1F5F9; color: #334155; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">Soft: {soft}/8</span>
+                        <p style="color: {tone_title_color}; margin: 0; font-weight: 800; font-size: 13px;">{'🚨 СКАРГА' if is_complaint else 'ТОН РОЗМОВИ'}</p>
+                        <span style="background: rgba(255,255,255,0.1); color: #E2E8F0; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">Soft: {soft}/8</span>
                     </div>
-                    <p style="margin: 0; color: {tone_text_color}; font-size: 14px; line-height: 1.5; font-style: italic; font-weight: {'600' if is_complaint else 'normal'};">"{tone}"</p>
+                    <p style="margin: 0; color: {tone_text_color}; font-size: 14px; font-style: italic;">"{tone}"</p>
                 </div>
             """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- Оцінка роботи менеджера ---
         manager_summary = row.get('Оцінка_Роботи_Менеджера', '')
         if pd.notna(manager_summary) and str(manager_summary).strip() != "":
-            st.info(f"💬 **Оцінка роботи менеджера:** {manager_summary}")
+            st.info(f"💬 **Оцінка:** {manager_summary}")
         
-        # --- БЛОК: АНАЛІЗ ПЕРЕМИКАННЯ ---
         if row.get('Було_Перемикання', 'Ні') == 'Так':
             justified = row.get('Перемикання_Виправдане', '')
-            if "Так" in str(justified):
-                st.success(f"🔁 **Перемикання/Створення запиту:** Виправдане. Причина: {justified}")
-            elif "Ні" in str(justified):
-                st.error(f"🚫 **Перемикання/Створення запиту:** НЕ ВИПРАВДАНЕ! Менеджер мав вирішити це питання сам. Аналіз: {justified}")
-            else:
-                st.warning(f"🔁 **Перемикання/Створення запиту:** Невідомо (клієнт не озвучив суть).")
-        # --------------------------------------
+            if "Так" in str(justified): st.success(f"🔁 **Перемикання:** Виправдане. {justified}")
+            elif "Ні" in str(justified): st.error(f"🚫 **Перемикання:** НЕ ВИПРАВДАНЕ! {justified}")
+            else: st.warning(f"🔁 **Перемикання:** Невідомо.")
 
-        # 🟢 ДИНАМІЧНИЙ БЛОК РЕЗУЛЬТАТУ РОЗМОВИ
-        res_title = row.get('Результат_Розмови_Заголовок', row.get('Результат_Розмови', 'Не визначено'))
-        res_desc = row.get('Результат_Розмови_Опис', 'Опис відсутній.')
+        res_title = row.get('Результат_Розмови_Заголовок', '')
+        res_desc = row.get('Результат_Розмови_Опис', '')
         root_prob = row.get('ROOT_PROBLEM', 'Немає')
         
         if root_prob == 'Немає': 
-            res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#F0FDF4", "#BBF7D0", "#DCFCE7", "#16A34A", "✓"
-            reason_html = ""
+            res_bg, res_border, res_icon_color, res_icon = "rgba(34, 197, 94, 0.05)", "rgba(34, 197, 94, 0.2)", "#A3E635", "✓"
         elif "Відмова" in str(res_title) or root_prob in ['Менеджер', 'Ціна', 'Наявність', 'Термін поставки', 'Процес']: 
-            res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEF2F2", "#FECACA", "#FEE2E2", "#DC2626", "!"
-            reason_html = f"<hr style='margin: 12px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 16px; font-weight: bold;'>Причина відмови: {root_prob}</p>"
+            res_bg, res_border, res_icon_color, res_icon = "rgba(239, 68, 68, 0.05)", "rgba(239, 68, 68, 0.3)", "#F87171", "!"
         else: 
-            res_bg, res_border, res_icon_bg, res_icon_color, res_icon = "#FEFCE8", "#FEF08A", "#FEF08A", "#B45309", "?"
-            if root_prob and root_prob != 'Немає':
-                reason_html = f"<hr style='margin: 12px 0; border-color: {res_border};'><p style='margin: 0; color: {res_icon_color}; font-size: 16px; font-weight: bold;'>Статус: {root_prob}</p>"
-            else:
-                reason_html = ""
+            res_bg, res_border, res_icon_color, res_icon = "rgba(245, 158, 11, 0.05)", "rgba(245, 158, 11, 0.3)", "#FBBF24", "?"
         
         st.markdown(f"""
-        <div style="background-color: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 24px; display: flex; align-items: flex-start; gap: 18px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-            <div style="background-color: {res_icon_bg}; color: {res_icon_color}; width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 26px; font-weight: bold; flex-shrink: 0;">{res_icon}</div>
-            <div style="width: 100%;">
-                <h4 style="margin: 0 0 10px 0; color: #0F172A; font-size: 22px; font-weight: 600;">Результат розмови: <span style="color: {res_icon_color}; font-weight: 900;">{res_title}</span></h4>
-                <p style="margin: 0; color: #475569; font-size: 17px; line-height: 1.6; margin-bottom: 8px;">{res_desc}</p>{reason_html}
+        <div style="background: {res_bg}; border: 1px solid {res_border}; border-radius: 12px; padding: 24px; display: flex; gap: 18px; margin-bottom: 24px;">
+            <div style="color: {res_icon_color}; font-size: 32px; font-weight: bold; flex-shrink: 0; text-shadow: 0 0 15px {res_icon_color}80;">{res_icon}</div>
+            <div>
+                <h4 style="margin: 0 0 10px 0; color: #FFFFFF; font-size: 22px;">Результат: <span style="color: {res_icon_color};">{res_title}</span></h4>
+                <p style="margin: 0; color: #94A3B8; font-size: 16px;">{res_desc}</p>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -588,13 +443,12 @@ with tab_history:
         mid1, mid2 = st.columns([1, 2])
         with mid1:
             with st.container(border=True):
-                st.write("**🛡 Робота з запереченнями**")
+                st.write("**🛡 Заперечення**")
                 if row.get("Заперечення_Були", "Ні") == "Так":
                     obj_score = row.get('Робота_з_запереченнями_Бал', 0)
-                    st.markdown(f"<div style='color: {'#16A34A' if obj_score==2 else '#DC2626'}; font-weight: bold; margin-bottom: 8px;'>Оцінка відпрацювання: {obj_score}/2</div>", unsafe_allow_html=True)
-                    st.write(f"<span style='font-size: 14px;'>{row.get('Заперечення_Деталі', 'Деталі відсутні')}</span>", unsafe_allow_html=True)
-                else:
-                    st.success("✅ Заперечень не було")
+                    st.markdown(f"<div style='color: {'#A3E635' if obj_score==2 else '#F87171'}; font-weight: bold; margin-bottom: 8px;'>Оцінка: {obj_score}/2</div>", unsafe_allow_html=True)
+                    st.write(f"<span style='font-size: 14px;'>{row.get('Заперечення_Деталі', '')}</span>", unsafe_allow_html=True)
+                else: st.success("✅ Не було")
 
         with mid2:
             sc1, sc2 = st.columns(2)
@@ -605,9 +459,7 @@ with tab_history:
                 for item in items:
                     clean = item.strip().replace("- ", "").replace("* ", "")
                     if clean and clean.lower() not in ["немає", "ні", "-"]:
-                        st.markdown(f"<div class='check-item'>✓ {clean}</div>", unsafe_allow_html=True)
-                        has_items = True
-                if not has_items: st.info("Не виявлено")
+                        st.markdown(f"<div class='check-item'>✓ {clean}</div>", unsafe_allow_html=True); has_items = True
             
             with sc2:
                 st.write("🚩 **Слабкі сторони**")
@@ -616,100 +468,49 @@ with tab_history:
                 for item in items:
                     clean = item.strip().replace("- ", "").replace("* ", "")
                     if clean and clean.lower() not in ["немає", "ні", "-"]:
-                        st.markdown(f"<div class='cross-item'>✕ {clean}</div>", unsafe_allow_html=True)
-                        has_items = True
-                if not has_items: st.success("Не виявлено")
+                        st.markdown(f"<div class='cross-item'>✕ {clean}</div>", unsafe_allow_html=True); has_items = True
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.info(f"**💡 Інсайт для бізнесу:** {row.get('Інсайт_для_CEO', 'Немає інсайтів')}")
-        
-        lost = row.get('Втрачено_грн', 0)
-        if lost > 0:
-            st.error(f"💸 **Втрачений прибуток з цього ліда:** {lost:,.0f} ₴ (Причина: {row.get('ROOT_PROBLEM')})")
-          
-        
 # ==========================================
-# ПАНЕЛЬ 4: ТРЕНДИ (ДИНАМІКА)
+# ПАНЕЛЬ 4: ТРЕНДИ
 # ==========================================
 with tab_trends:
-    st.markdown("### 📈 Загальна динаміка відділу")
-    
+    st.markdown("### 📈 Динаміка")
     if "Дата" in df_filtered.columns and not df_filtered.empty:
-        trend_all = df_filtered.groupby('Дата').agg({
-            'Крос_сел': 'mean',
-            'Екосистема': 'mean',
-            'Hard_Бал': 'mean',
-            'Дзвінок': 'count'
-        }).reset_index()
-        
+        trend_all = df_filtered.groupby('Дата').agg({'Крос_сел': 'mean', 'Екосистема': 'mean', 'Hard_Бал': 'mean', 'Дзвінок': 'count'}).reset_index()
         sales_all = df_filtered[df_filtered['ROOT_PROBLEM'] == 'Немає'].groupby('Дата').size().reset_index(name='Продажів')
         trend_all = trend_all.merge(sales_all, on='Дата', how='left').fillna({'Продажів': 0})
         trend_all['Конверсія_%'] = (trend_all['Продажів'] / trend_all['Дзвінок'] * 100).round(1)
 
         c1, c2, c3 = st.columns(3)
         with c1:
-            fig1 = px.line(trend_all, x='Дата', y='Конверсія_%', title="Динаміка Конверсії (%)")
-            fig1.update_traces(line=dict(width=4, color='#10B981')) 
-            fig1.update_yaxes(range=[0, 100])
+            fig1 = px.line(trend_all, x='Дата', y='Конверсія_%', title="Конверсія (%)")
+            fig1.update_traces(line=dict(width=4, color='#A3E635'))
+            fig1.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#94A3B8', yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', range=[0,100]))
             st.plotly_chart(fig1, use_container_width=True)
         with c2:
-            fig2 = px.line(trend_all, x='Дата', y='Крос_сел', title="Динаміка Крос-селу (сер. бал)")
-            fig2.update_traces(line=dict(width=4, color='#F59E0B')) 
-            fig2.update_yaxes(range=[-0.1, 2.1])
+            fig2 = px.line(trend_all, x='Дата', y='Крос_сел', title="Крос-сел")
+            fig2.update_traces(line=dict(width=4, color='#FBBF24')) 
+            fig2.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#94A3B8', yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', range=[-0.1, 2.1]))
             st.plotly_chart(fig2, use_container_width=True)
         with c3:
-            fig3 = px.line(trend_all, x='Дата', y='Екосистема', title="Динаміка Екосистеми (сер. бал)")
+            fig3 = px.line(trend_all, x='Дата', y='Екосистема', title="Екосистема")
             fig3.update_traces(line=dict(width=4, color='#8B5CF6')) 
-            fig3.update_yaxes(range=[-0.1, 2.1])
+            fig3.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#94A3B8', yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', range=[-0.1, 2.1]))
             st.plotly_chart(fig3, use_container_width=True)
 
-        st.markdown("<hr style='margin: 30px 0;'>", unsafe_allow_html=True)
-        st.markdown("### 👤 Детальна динаміка по менеджерах")
-
-        trend_mgr = df_filtered.groupby(['Дата', 'Менеджер']).agg({
-            'Крос_сел': 'mean',
-            'Екосистема': 'mean',
-            'Hard_Бал': 'mean'
-        }).reset_index()
-
-        col_t1, col_t2 = st.columns(2)
-        with col_t1:
-            fig_cross_mgr = px.line(trend_mgr, x='Дата', y='Крос_сел', color='Менеджер', markers=True, title="Крос-сел по менеджерах", color_discrete_sequence=px.colors.qualitative.Set1)
-            fig_cross_mgr.update_yaxes(range=[-0.1, 2.1])
-            st.plotly_chart(fig_cross_mgr, use_container_width=True)
-            
-        with col_t2:
-            fig_eco_mgr = px.line(trend_mgr, x='Дата', y='Екосистема', color='Менеджер', markers=True, title="Екосистема по менеджерах", color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig_eco_mgr.update_yaxes(range=[-0.1, 2.1])
-            st.plotly_chart(fig_eco_mgr, use_container_width=True)
-            
-        st.markdown("---")
-        fig_total_mgr = px.area(trend_mgr, x='Дата', y='Hard_Бал', color='Менеджер', title="Загальний Hard Бал по менеджерах", color_discrete_sequence=px.colors.qualitative.Bold)
-        st.plotly_chart(fig_total_mgr, use_container_width=True)
-    else:
-        st.info("Потрібно більше даних з датами для відображення трендів.")
-
 # ==========================================
-# ПАНЕЛЬ 5: COACHING (МАТРИЦЯ НАВИЧОК)
+# ПАНЕЛЬ 5: МАТРИЦЯ
 # ==========================================
 with tab_coach:
-    st.markdown("### 🎓 Детальна матриця навичок")
-    
+    st.markdown("### 🎓 Матриця навичок")
     skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Привітність', 'Ввічливість', 'Емпатія']
     existing_skills = [c for c in skill_cols if c in df_filtered.columns]
     
     agg_dict = {"Дзвінків": pd.NamedAgg(column="Дзвінок", aggfunc="count")}
     if "Hard_Бал" in df_filtered.columns: agg_dict["Сер_Hard"] = pd.NamedAgg(column="Hard_Бал", aggfunc="mean")
-    
-    for skill in existing_skills:
-        agg_dict[skill] = pd.NamedAgg(column=skill, aggfunc="mean")
+    for skill in existing_skills: agg_dict[skill] = pd.NamedAgg(column=skill, aggfunc="mean")
         
     coach_stats = df_filtered.groupby("Менеджер").agg(**agg_dict).reset_index()
-    if "Сер_Hard" in coach_stats.columns:
-        coach_stats = coach_stats.sort_values(by="Сер_Hard", ascending=False)
+    if "Сер_Hard" in coach_stats.columns: coach_stats = coach_stats.sort_values(by="Сер_Hard", ascending=False)
         
-    styled_coach = coach_stats.style.format(precision=1)\
-        .background_gradient(cmap='Blues', subset=existing_skills, vmin=0, vmax=2)\
-        .background_gradient(cmap='Greens', subset=['Сер_Hard']) if 'Сер_Hard' in coach_stats.columns else coach_stats
-        
-    st.dataframe(styled_coach, use_container_width=True, hide_index=True)
+    st.dataframe(coach_stats.style.format(precision=1), use_container_width=True, hide_index=True)

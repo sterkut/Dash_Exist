@@ -96,16 +96,19 @@ with st.sidebar:
 
     st.markdown("### 🎛 Фільтри")
     
-    # Кнопка скидання фільтрів
+    # --- НАДІЙНЕ СКИДАННЯ ФІЛЬТРІВ (RESET KEY) ---
+    if "reset_key" not in st.session_state:
+        st.session_state.reset_key = 0
+
     if st.button("❌ Скинути всі фільтри", use_container_width=True):
-        for key in ["chk_complaints", "dt_range", "ms_managers", "ms_types", "ms_dirs", "ms_intents", "ms_transfers", "ms_results", "ms_roots"]:
-            if key in st.session_state:
-                del st.session_state[key]
+        st.session_state.reset_key += 1
         st.rerun()
+    
+    rk = st.session_state.reset_key # Коротка змінна для ключів
     
     # 1. ПРАПОРЕЦЬ СКАРГ
     if "Тон_Розмови" in df.columns:
-        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False, key="chk_complaints")
+        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False, key=f"chk_complaints_{rk}")
         if show_complaints:
             st.info("⚠️ Інші фільтри заморожено. Показано всі скарги.")
     else:
@@ -115,7 +118,7 @@ with st.sidebar:
     if "Дата" in df.columns and not df["Дата"].dropna().empty:
         min_date = df["Дата"].min()
         max_date = df["Дата"].max()
-        date_range = st.date_input("📅 Період аналізу", value=(min_date, max_date), min_value=min_date, max_value=max_date, disabled=show_complaints, key="dt_range")
+        date_range = st.date_input("📅 Період аналізу", value=(min_date, max_date), min_value=min_date, max_value=max_date, disabled=show_complaints, key=f"dt_range_{rk}")
         
         if len(date_range) == 2:
             df_step0 = df[(df["Дата"] >= date_range[0]) & (df["Дата"] <= date_range[1])]
@@ -126,32 +129,32 @@ with st.sidebar:
 
     # 3. МЕНЕДЖЕРИ
     managers_list = sorted(df_step0["Менеджер"].dropna().unique()) if "Менеджер" in df_step0.columns else []
-    selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list, disabled=show_complaints, key="ms_managers")
+    selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list, disabled=show_complaints, key=f"ms_managers_{rk}")
     df_step1 = df_step0[df_step0["Менеджер"].isin(selected_managers)] if selected_managers else df_step0
     
     # 4. ТИП ДЗВІНКА
     if "Тип_Дзвінка" in df_step1.columns:
         types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
         default_types = [t for t in types_list if str(t) != "Холодний"]
-        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types, disabled=show_complaints, key="ms_types")
+        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types, disabled=show_complaints, key=f"ms_types_{rk}")
         df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
 
     # 5. НАПРЯМОК
     if "Вх_Вих" in df_step1.columns:
         dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
-        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints, key="ms_dirs")
+        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints, key=f"ms_dirs_{rk}")
         df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
     
-    # 6. ГОТОВНІСТЬ
+    # 6. ГОТОВНІСТЬ (ЗМІНЕНО НАЗВУ)
     intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
     default_intents = [i for i in intents_list if str(i) != "Low"]
-    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents, disabled=show_complaints, key="ms_intents")
+    selected_intents = st.multiselect("🎯 Готовність (Low вимкнено)", intents_list, default=default_intents, disabled=show_complaints, key=f"ms_intents_{rk}")
     df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
 
     # 7. ПЕРЕМИКАННЯ
     if "Було_Перемикання" in df_step2.columns:
         transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
-        selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list, disabled=show_complaints, key="ms_transfers")
+        selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list, disabled=show_complaints, key=f"ms_transfers_{rk}")
         df_step3 = df_step2[df_step2["Було_Перемикання"].isin(selected_transfers)] if selected_transfers else df_step2
     else:
         df_step3 = df_step2
@@ -160,14 +163,14 @@ with st.sidebar:
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
     if res_col in df_step3.columns:
         res_list = sorted(df_step3[res_col].dropna().unique())
-        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints, key="ms_results")
+        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints, key=f"ms_results_{rk}")
         df_step4 = df_step3[df_step3[res_col].isin(selected_res)] if selected_res else df_step3
     else:
         df_step4 = df_step3
 
     # 9. ПРИЧИНА ВТРАТИ
     root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
-    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints, key="ms_roots")
+    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints, key=f"ms_roots_{rk}")
     df_step5 = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
 
     # --- МАГІЯ ДАНИХ ДЛЯ СКАРГ ---

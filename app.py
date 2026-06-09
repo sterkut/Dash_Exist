@@ -28,8 +28,26 @@ def load_data():
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # Завантаження головної бази (CEO Report)
         url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=398555031#gid=398555031"
         df = conn.read(spreadsheet=url)
+        
+        # Підтягування красивих ПІБ зі словника
+        try:
+            dict_url = "https://docs.google.com/spreadsheets/d/1oL1AREPUAe4qYfJPJPTNz0ga9mMxO3G_mkW_Iyn4aew/edit"
+            df_dict = conn.read(spreadsheet=dict_url)
+            
+            if not df_dict.empty and 'username' in df_dict.columns and "Ім'я" in df_dict.columns:
+                def extract_name(full_name):
+                    parts = str(full_name).split('/')[0].strip().split()
+                    return " ".join(parts[:2]) if len(parts) >= 2 else str(full_name).split('/')[0].strip()
+                
+                mapping = dict(zip(df_dict['username'].astype(str).str.strip(), df_dict["Ім'я"].apply(extract_name)))
+                df['Менеджер'] = df['Менеджер'].astype(str).str.strip().map(lambda x: mapping.get(x, x))
+        except Exception:
+            pass # Якщо словник недоступний, залишаємо як є
+            
     except: pass
     
     if df.empty:
@@ -41,13 +59,11 @@ def load_data():
         if "Дата" in df.columns:
             df["Дата"] = pd.to_datetime(df["Дата"], errors='coerce').dt.date
             
-        # Усі навички перетворюємо на числа. Додано "Виявлення_Потреби"!
         skill_cols = ['Привітання', 'Виявлення_Потреби', 'Експертиза', 'Презентація', 'Крос_сел', 'Екосистема', 'Закриття', 'Робота_з_запереченнями_Бал']
         for col in skill_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 
-        # Hard_Бал та Soft_Бал залишаємо з нулями, якщо там пусто
         if 'Hard_Бал' in df.columns: df['Hard_Бал'] = pd.to_numeric(df['Hard_Бал'], errors='coerce').fillna(0)
         if 'Soft_Бал' in df.columns: df['Soft_Бал'] = pd.to_numeric(df['Soft_Бал'], errors='coerce').fillna(0)
     return df
@@ -80,71 +96,87 @@ with st.sidebar:
 
     st.markdown("### 🎛 Фільтри")
     
-    # 1. ПРАПОРЕЦЬ СКАРГ (Тепер він головний і стоїть першим)
+    # Кнопка скидання фільтрів
+    if st.button("❌ Скинути всі фільтри", use_container_width=True):
+        for key in ["chk_complaints", "dt_range", "ms_managers", "ms_types", "ms_dirs", "ms_intents", "ms_transfers", "ms_results", "ms_roots"]:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
+    
+    # 1. ПРАПОРЕЦЬ СКАРГ
     if "Тон_Розмови" in df.columns:
-        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False)
+        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False, key="chk_complaints")
         if show_complaints:
             st.info("⚠️ Інші фільтри заморожено. Показано всі скарги.")
     else:
         show_complaints = False
 
-    # 2. МЕНЕДЖЕРИ (Додано disabled=show_complaints до всіх фільтрів)
-    managers_list = sorted(df["Менеджер"].dropna().unique()) if "Менеджер" in df.columns else []
-    selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list, disabled=show_complaints)
+    # 2. КАЛЕНДАР (Діапазон дат)
+    if "Дата" in df.columns and not df["Дата"].dropna().empty:
+        min_date = df["Дата"].min()
+        max_date = df["Дата"].max()
+        date_range = st.date_input("📅 Період аналізу", value=(min_date, max_date), min_value=min_date, max_value=max_date, disabled=show_complaints, key="dt_range")
+        
+        if len(date_range) == 2:
+            df_step0 = df[(df["Дата"] >= date_range[0]) & (df["Дата"] <= date_range[1])]
+        else:
+            df_step0 = df
+    else:
+        df_step0 = df
+
+    # 3. МЕНЕДЖЕРИ
+    managers_list = sorted(df_step0["Менеджер"].dropna().unique()) if "Менеджер" in df_step0.columns else []
+    selected_managers = st.multiselect("👤 Менеджери", managers_list, default=managers_list, disabled=show_complaints, key="ms_managers")
+    df_step1 = df_step0[df_step0["Менеджер"].isin(selected_managers)] if selected_managers else df_step0
     
-    df_step1 = df[df["Менеджер"].isin(selected_managers)] if selected_managers else df
-    
-    # 3. ТИП ДЗВІНКА
+    # 4. ТИП ДЗВІНКА
     if "Тип_Дзвінка" in df_step1.columns:
         types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
         default_types = [t for t in types_list if str(t) != "Холодний"]
-        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types, disabled=show_complaints)
+        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types, disabled=show_complaints, key="ms_types")
         df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
 
-    # 4. НАПРЯМОК
+    # 5. НАПРЯМОК
     if "Вх_Вих" in df_step1.columns:
         dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
-        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints)
+        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints, key="ms_dirs")
         df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
     
-    # 5. ГОТОВНІСТЬ
+    # 6. ГОТОВНІСТЬ
     intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
     default_intents = [i for i in intents_list if str(i) != "Low"]
-    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents, disabled=show_complaints)
+    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents, disabled=show_complaints, key="ms_intents")
     df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
 
-    # 6. ПЕРЕМИКАННЯ
+    # 7. ПЕРЕМИКАННЯ
     if "Було_Перемикання" in df_step2.columns:
         transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
-        selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list, disabled=show_complaints)
+        selected_transfers = st.multiselect("🔁 Було перемикання?", transfers_list, default=transfers_list, disabled=show_complaints, key="ms_transfers")
         df_step3 = df_step2[df_step2["Було_Перемикання"].isin(selected_transfers)] if selected_transfers else df_step2
     else:
         df_step3 = df_step2
 
-    # 7. РЕЗУЛЬТАТ РОЗМОВИ
+    # 8. РЕЗУЛЬТАТ РОЗМОВИ
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
     if res_col in df_step3.columns:
         res_list = sorted(df_step3[res_col].dropna().unique())
-        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints)
+        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints, key="ms_results")
         df_step4 = df_step3[df_step3[res_col].isin(selected_res)] if selected_res else df_step3
     else:
         df_step4 = df_step3
 
-    # 8. ПРИЧИНА ВТРАТИ
+    # 9. ПРИЧИНА ВТРАТИ
     root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
-    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints)
+    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints, key="ms_roots")
     df_step5 = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
 
     # --- МАГІЯ ДАНИХ ДЛЯ СКАРГ ---
     if show_complaints:
-        # Якщо прапорець увімкнено, беремо дані з ГОЛОВНОГО df, ігноруючи всі фільтри
         df_filtered = df[df["Тон_Розмови"].astype(str).str.startswith("Скарга")]
     else:
-        # Якщо вимкнено, беремо дані, які пройшли через усі фільтри
         df_filtered = df_step5
 
     st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("### 💰 Фінансові параметри")
     st.markdown("### 💰 Фінансові параметри")
     avg_check = st.number_input("Середній чек (грн)", value=1500, step=100)
     
@@ -258,7 +290,6 @@ with tab_analytics:
     col_d1, col_d2 = st.columns(2)
     
     with col_d1:
-        res_col = 'Результат_Розмови_Заголовок' if 'Результат_Розмови_Заголовок' in df_filtered.columns else 'Результат_Розмови'
         if res_col in df_filtered.columns:
             def clean_status(val):
                 s = str(val).lower()
@@ -332,7 +363,7 @@ with tab_analytics:
             Відмов_шт=('ROOT_PROBLEM', lambda x: (x != 'Немає').sum())
         ).reset_index()
 
-        mgr_stats = mgr_stats.rename(columns={'Менеджер': 'Прізвище'})
+        mgr_stats = mgr_stats.rename(columns={'Менеджер': 'Прізвище та Ім\'я'})
         mgr_stats['Конверсія_%'] = (mgr_stats['Продажів_шт'] / mgr_stats['Кількість_дзвінків'] * 100).round(1)
 
         styled_mgr = mgr_stats.style.format({
@@ -422,8 +453,15 @@ with tab_ceo:
     lost_deals_df = df_filtered[df_filtered['ROOT_PROBLEM'] != 'Немає'].copy()
     
     if not lost_deals_df.empty:
-        cols_to_show = ['Менеджер', 'Дзвінок', 'Готовність', 'ROOT_PROBLEM', 'Втрачено_грн', 'Інсайт_для_CEO']
-        st.dataframe(lost_deals_df[cols_to_show], use_container_width=True, hide_index=True)
+        cols_to_show = ['Менеджер', 'Готовність', 'ROOT_PROBLEM', 'Втрачено_грн', 'Інсайт_для_CEO', 'Посилання_на_аудіо']
+        st.dataframe(
+            lost_deals_df[cols_to_show],
+            column_config={
+                "Посилання_на_аудіо": st.column_config.LinkColumn("Дзвінок", display_text="Скачати")
+            },
+            use_container_width=True,
+            hide_index=True
+        )
     else:
         st.success("Втрат не виявлено! Всі угоди успішні.")
 
@@ -434,9 +472,7 @@ with tab_history:
     st.markdown("### 🎧 Історія дзвінків")
     st.write("Виділіть рядок у таблиці нижче, щоб переглянути детальний аналіз.")
     
-    res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_filtered.columns else "Результат_Розмови"
-    
-    cols_to_list = ["Дата", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
+    cols_to_list = ["Дата", "Менеджер", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
     cols_to_list = [c for c in cols_to_list if c in df_filtered.columns]
     
     try:
@@ -467,7 +503,7 @@ with tab_history:
         # --- БЛОК: АУДІО ПЛЕЄР ---
         col_hdr1, col_hdr2 = st.columns([2, 1])
         with col_hdr1:
-            st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
+            st.subheader(f"📄 Картка розмови: {row.get('Менеджер', 'Невідомо')}")
         with col_hdr2:
             if "Посилання_на_аудіо" in row and pd.notna(row['Посилання_на_аудіо']):
                 st.audio(row['Посилання_на_аудіо'])

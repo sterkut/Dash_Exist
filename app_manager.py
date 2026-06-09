@@ -21,12 +21,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. БАЗА PIN-КОДІВ ---
+# --- 2. БАЗА PIN-КОДІВ (ВСТАВ СЮДИ ЗГЕНЕРОВАНИЙ СЛОВНИК) ---
 MANAGER_PINS = {
-    "1365": "Kobernyk", "2563": "Gardaman", "9586": "Nikolaychuk", "7562": "Bezdukhyi",
-    "4216": "Chumakevych", "7381": "Gaskov", "5536": "Bezushkevych", "9743": "Palanichko",
-    "9832": "Tovarianskyi", "9586": "Protsiv", "3632": "Sobeiko", "5587": "Yakubovskyi",
-    "2534": "Melnyk", "8472": "Verner", "2252": "belonozhko", "5741": "Zabrodskyi"
+    "8541": "Варчук Євгеній", 
+    "5896": "Бездухий Олександр",
+    "6359": "Безушкевич Микола"
+    # ... додавай сюди інші згенеровані пари "пін": "Прізвище Ім'я"
 }
 
 # --- 3. ЗАВАНТАЖЕННЯ ДАНИХ ---
@@ -36,8 +36,26 @@ def load_data():
     try:
         from streamlit_gsheets import GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # Головна база
         url = "https://docs.google.com/spreadsheets/d/1a1JlK5D4MoRjiHBLOuUN9ScVkKzGPLE6zL1LvXj3Ezw/edit?gid=398555031#gid=398555031"
         df = conn.read(spreadsheet=url)
+        
+        # Автоматичний мапінг логінів на красиві ПІБ
+        try:
+            dict_url = "https://docs.google.com/spreadsheets/d/1oL1AREPUAe4qYfJPJPTNz0ga9mMxO3G_mkW_Iyn4aew/edit"
+            df_dict = conn.read(spreadsheet=dict_url)
+            
+            if not df_dict.empty and 'username' in df_dict.columns and "Ім'я" in df_dict.columns:
+                def extract_name(full_name):
+                    parts = str(full_name).split('/')[0].strip().split()
+                    return " ".join(parts[:2]) if len(parts) >= 2 else str(full_name).split('/')[0].strip()
+                
+                mapping = dict(zip(df_dict['username'].astype(str).str.strip(), df_dict["Ім'я"].apply(extract_name)))
+                df['Менеджер'] = df['Менеджер'].astype(str).str.strip().map(lambda x: mapping.get(x, x))
+        except:
+            pass
+            
     except: pass
     
     if df.empty:
@@ -94,69 +112,90 @@ if not st.session_state["authenticated"]:
         st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- 5. ФІЛЬТРАЦІЯ ДАНИХ (Для компанії і для менеджера) ---
+# --- 5. ФІЛЬТРАЦІЯ ДАНИХ (З НАДІЙНИМ СКИДАННЯМ RESET KEY) ---
 manager_name = st.session_state["manager_name"]
 
 with st.sidebar:
     st.markdown(f"### Вітаємо, {manager_name}! 👋")
     st.write("Твій AI-тренер готовий до розбору.")
-    if st.button("🚪 Вийти"):
-        st.session_state["authenticated"] = False
-        st.rerun()
-    if st.button("🔄 Оновити дані"):
-        st.cache_data.clear()
-        st.rerun()
+    
+    col_nav1, col_nav2 = st.columns(2)
+    with col_nav1:
+        if st.button("🚪 Вийти", use_container_width=True):
+            st.session_state["authenticated"] = False
+            st.rerun()
+    with col_nav2:
+        if st.button("🔄 Оновити", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+            
     st.markdown("---")
     st.markdown("### 🎛 Фільтри")
     
+    if "reset_key_mgr" not in st.session_state:
+        st.session_state.reset_key_mgr = 0
+
+    if st.button("❌ Скинути всі фільтри", use_container_width=True):
+        st.session_state.reset_key_mgr += 1
+        st.rerun()
+        
+    rk = st.session_state.reset_key_mgr
+    
     if "Тон_Розмови" in df_full.columns:
-        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False)
+        show_complaints = st.checkbox("🚨 Показати тільки СКАРГИ", value=False, key=f"chk_complaints_mgr_{rk}")
         if show_complaints: st.info("⚠️ Інші фільтри заморожено.")
     else: show_complaints = False
 
-    # Фільтруємо df_full (щоб рахувати середнє по компанії коректно)
-    df_step1 = df_full.copy()
+    # Календарний фільтр періоду
+    if "Дата" in df_full.columns and not df_full["Дата"].dropna().empty:
+        min_date = df_full["Дата"].min()
+        max_date = df_full["Дата"].max()
+        date_range = st.date_input("📅 Період аналізу", value=(min_date, max_date), min_value=min_date, max_value=max_date, disabled=show_complaints, key=f"dt_range_mgr_{rk}")
+        if len(date_range) == 2:
+            df_step1 = df_full[(df_full["Дата"] >= date_range[0]) & (df_full["Дата"] <= date_range[1])]
+        else:
+            df_step1 = df_full
+    else:
+        df_step1 = df_full
     
     if "Тип_Дзвінка" in df_step1.columns:
         types_list = sorted(df_step1["Тип_Дзвінка"].dropna().unique())
         default_types = [t for t in types_list if str(t) != "Холодний"]
-        selected_types = st.multiselect("📞 Тип дзвінка", types_list, default=default_types, disabled=show_complaints)
+        selected_types = st.multiselect("📞 Тип дзвінка (сервісні вимкнено)", types_list, default=default_types, disabled=show_complaints, key=f"ms_types_mgr_{rk}")
         df_step1 = df_step1[df_step1["Тип_Дзвінка"].isin(selected_types)] if selected_types else df_step1
 
     if "Вх_Вих" in df_step1.columns:
         dir_list = sorted(df_step1["Вх_Вих"].dropna().unique())
-        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints)
+        selected_dir = st.multiselect("📥 Напрямок", dir_list, default=dir_list, disabled=show_complaints, key=f"ms_dirs_mgr_{rk}")
         df_step1 = df_step1[df_step1["Вх_Вих"].isin(selected_dir)] if selected_dir else df_step1
     
     intents_list = sorted(df_step1["Готовність"].dropna().unique()) if "Готовність" in df_step1.columns else []
     default_intents = [i for i in intents_list if str(i) != "Low"]
-    selected_intents = st.multiselect("🎯 Готовність", intents_list, default=default_intents, disabled=show_complaints)
+    selected_intents = st.multiselect("🎯 Готовність (Low вимкнено)", intents_list, default=default_intents, disabled=show_complaints, key=f"ms_intents_mgr_{rk}")
     df_step2 = df_step1[df_step1["Готовність"].isin(selected_intents)] if selected_intents else df_step1
 
     if "Було_Перемикання" in df_step2.columns:
         transfers_list = sorted(df_step2["Було_Перемикання"].dropna().unique())
-        selected_transfers = st.multiselect("🔁 Перемикання?", transfers_list, default=transfers_list, disabled=show_complaints)
+        selected_transfers = st.multiselect("🔁 Перемикання?", transfers_list, default=transfers_list, disabled=show_complaints, key=f"ms_transfers_mgr_{rk}")
         df_step3 = df_step2[df_step2["Було_Перемикання"].isin(selected_transfers)] if selected_transfers else df_step2
     else: df_step3 = df_step2
 
     res_col = "Результат_Розмови_Заголовок" if "Результат_Розмови_Заголовок" in df_step3.columns else "Результат_Розмови"
     if res_col in df_step3.columns:
         res_list = sorted(df_step3[res_col].dropna().unique())
-        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints)
+        selected_res = st.multiselect("📝 Результат розмови", res_list, default=res_list, disabled=show_complaints, key=f"ms_results_mgr_{rk}")
         df_step4 = df_step3[df_step3[res_col].isin(selected_res)] if selected_res else df_step3
     else: df_step4 = df_step3
 
     root_list = sorted(df_step4["ROOT_PROBLEM"].dropna().unique()) if "ROOT_PROBLEM" in df_step4.columns else []
-    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints)
+    selected_roots = st.multiselect("🚨 Причина втрати", root_list, default=root_list, disabled=show_complaints, key=f"ms_roots_mgr_{rk}")
     df_step5 = df_step4[df_step4["ROOT_PROBLEM"].isin(selected_roots)] if selected_roots else df_step4
 
-    # Глобальний відфільтрований DF (для порівняння з компанією)
     if show_complaints:
         df_company_filtered = df_full[df_full["Тон_Розмови"].astype(str).str.startswith("Скарга")]
     else:
         df_company_filtered = df_step5
 
-    # Персональний відфільтрований DF (тільки для цього менеджера)
     df_personal = df_company_filtered[df_company_filtered["Менеджер_Clean"] == manager_name]
 
 # --- 6. ГОЛОВНИЙ ІНТЕРФЕЙС ---
@@ -265,7 +304,7 @@ with tab_analytics:
         st.plotly_chart(fig_conv, use_container_width=True)
 
 # ==========================================
-# ПАНЕЛЬ 2: ІСТОРІЯ ТА РОЗБІР (ТІЛЬКИ ПО СОБІ)
+# ПАНЕЛЬ 2: ІСТОРІЯ ТА РОЗБІР (ПІБ ЗАМІСТЬ ЛОГІНІВ)
 # ==========================================
 with tab_history:
     st.markdown("### 🎧 Мої дзвінки та розбір помилок")
@@ -273,7 +312,8 @@ with tab_history:
     if df_personal.empty:
         st.warning("Поки що немає проаналізованих дзвінків.")
     else:
-        cols_to_list = ["Дата", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
+        # Стовпець "Дзвінок" в таблиці замінено на красиве "Менеджер" (ПІБ)
+        cols_to_list = ["Дата", "Менеджер", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
         cols_to_list = [c for c in cols_to_list if c in df_personal.columns]
         
         event = st.dataframe(df_personal[cols_to_list], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", height=250)
@@ -284,10 +324,15 @@ with tab_history:
 
             st.markdown("---")
             col_hdr1, col_hdr2 = st.columns([2, 1])
-            with col_hdr1: st.subheader(f"📄 Картка розмови: {row.get('Дзвінок', 'Невідомо')}")
+            with col_hdr1: 
+                # Картка тепер іменується за красивим ПІБ
+                st.subheader(f"📄 Картка розмови: {row.get('Менеджер', 'Невідомо')}")
             with col_hdr2:
+                # Вбудований аудіоплеєр розмови
                 if "Посилання_на_аудіо" in row and pd.notna(row['Посилання_на_аудіо']):
                     st.audio(row['Посилання_на_аудіо'])
+                else:
+                    st.caption("Аудіозапис розмови відсутній")
             
             if "Логіка_Аналізу" in row and pd.notna(row['Логіка_Аналізу']):
                 with st.expander("🤖 Логіка прийняття рішення ШІ (Чому оцінка саме така?)"):
@@ -401,7 +446,6 @@ with tab_trends:
     st.markdown("### 📈 Твоя динаміка vs Середнє по компанії")
     if not df_personal.empty and "Дата" in df_personal.columns and not df_company_filtered.empty:
         
-        # 1. Рахуємо тренди КОМПАНІЇ (Товста сіра лінія)
         trend_comp = df_company_filtered.groupby("Дата").agg({
             "Hard_Бал": "mean", "Крос_сел": "mean", "Екосистема": "mean", "Дзвінок": "count"
         }).reset_index()
@@ -410,7 +454,6 @@ with tab_trends:
         trend_comp['Конверсія_%'] = (trend_comp['Продажів'] / trend_comp['Дзвінок'] * 100).round(1)
         trend_comp['Хто'] = 'Компанія (Середнє)'
 
-        # 2. Рахуємо тренди МЕНЕДЖЕРА (Яскрава лінія)
         trend_me = df_personal.groupby("Дата").agg({
             "Hard_Бал": "mean", "Крос_сел": "mean", "Екосистема": "mean", "Дзвінок": "count"
         }).reset_index()
@@ -419,25 +462,24 @@ with tab_trends:
         trend_me['Конверсія_%'] = (trend_me['Продажів'] / trend_me['Дзвінок'] * 100).round(1)
         trend_me['Хто'] = 'Ти (Менеджер)'
 
-        # Об'єднуємо для графіка
         trend_combined = pd.concat([trend_comp, trend_me])
 
         c1, c2, c3 = st.columns(3)
-        color_map = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#10B981'} # Зелений для конверсії
+        color_map = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#10B981'}
         with c1:
             fig_c = px.line(trend_combined, x="Дата", y="Конверсія_%", color="Хто", markers=True, title="Конверсія у продаж (%)", color_discrete_map=color_map)
             fig_c.update_traces(line=dict(width=3))
             fig_c.update_yaxes(range=[0, 100])
             st.plotly_chart(fig_c, use_container_width=True)
             
-        color_map_cross = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#F59E0B'} # Жовтий для крос-селу
+        color_map_cross = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#F59E0B'}
         with c2:
             fig_cr = px.line(trend_combined, x="Дата", y="Крос_сел", color="Хто", markers=True, title="Крос-сел (сер. бал)", color_discrete_map=color_map_cross)
             fig_cr.update_traces(line=dict(width=3))
             fig_cr.update_yaxes(range=[-0.1, 2.1])
             st.plotly_chart(fig_cr, use_container_width=True)
             
-        color_map_eco = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#8B5CF6'} # Фіолетовий для екосистеми
+        color_map_eco = {'Компанія (Середнє)': '#CBD5E1', 'Ти (Менеджер)': '#8B5CF6'}
         with c3:
             fig_e = px.line(trend_combined, x="Дата", y="Екосистема", color="Хто", markers=True, title="Екосистема (сер. бал)", color_discrete_map=color_map_eco)
             fig_e.update_traces(line=dict(width=3))
@@ -456,24 +498,20 @@ with tab_coach:
     existing_skills = [c for c in skill_cols if c in df_personal.columns and c in df_company_filtered.columns]
     
     if existing_skills and not df_personal.empty:
-        # Рахуємо середні бали
         my_scores = df_personal[existing_skills].mean().values.tolist()
         company_scores = df_company_filtered[existing_skills].mean().values.tolist()
         
-        # Замикаємо коло для радару (перший елемент в кінець)
         categories = existing_skills + [existing_skills[0]]
         my_scores_closed = my_scores + [my_scores[0]]
         company_scores_closed = company_scores + [company_scores[0]]
 
         fig_radar = go.Figure()
         
-        # Лінія компанії (сіра, зафарбована легко)
         fig_radar.add_trace(go.Scatterpolar(
             r=company_scores_closed, theta=categories, fill='toself', name='Середнє по компанії',
             line_color='#94A3B8', fillcolor='rgba(148, 163, 184, 0.2)'
         ))
         
-        # Лінія менеджера (яскраво-синя)
         fig_radar.add_trace(go.Scatterpolar(
             r=my_scores_closed, theta=categories, fill='toself', name='Твій результат',
             line_color='#3B82F6', fillcolor='rgba(59, 130, 246, 0.4)'

@@ -382,8 +382,8 @@ with tab_history:
     if df_personal.empty:
         st.warning("Поки що немає проаналізованих дзвінків.")
     else:
-        # Стовпець "Дзвінок" в таблиці замінено на красиве "Менеджер" (ПІБ)
-        cols_to_list = ["Дата", "Менеджер", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
+        # ДОДАНО Телефон_Клієнта та Дзвінок (ID) у загальну таблицю
+        cols_to_list = ["Дата", "Менеджер", "Телефон_Клієнта", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
         cols_to_list = [c for c in cols_to_list if c in df_personal.columns]
         
         event = st.dataframe(df_personal[cols_to_list], use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", height=250)
@@ -395,8 +395,11 @@ with tab_history:
             st.markdown("---")
             col_hdr1, col_hdr2 = st.columns([2, 1])
             with col_hdr1: 
-                # Картка тепер іменується за красивим ПІБ
-                st.subheader(f"📄 Картка розмови: {row.get('Менеджер', 'Невідомо')}")
+                # ОНОВЛЕНИЙ ЗАГОЛОВОК КАРТКИ З ТЕЛЕФОНОМ ТА ID ДЗВІНКА
+                mgr_name = row.get('Менеджер', 'Невідомо')
+                client_phone = row.get('Телефон_Клієнта', 'Невідомо')
+                call_id = row.get('Дзвінок', 'Невідомо')
+                st.subheader(f"📄 {mgr_name} | 📱 {client_phone} | 🆔 {call_id}")
             with col_hdr2:
                 # Вбудований аудіоплеєр розмови
                 if "Посилання_на_аудіо" in row and pd.notna(row['Посилання_на_аудіо']):

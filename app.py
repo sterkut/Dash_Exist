@@ -475,25 +475,19 @@ with tab_history:
     st.markdown("### 🎧 Історія дзвінків")
     st.write("Виділіть рядок у таблиці нижче, щоб переглянути детальний аналіз.")
     
-    # ДОДАНО Телефон_Клієнта та Дзвінок (ID) у загальну таблицю
     cols_to_list = ["Дата", "Менеджер", "Телефон_Клієнта", "Дзвінок", "Вх_Вих", "Тип_Дзвінка", res_col, "Hard_Бал"]
+    cols_to_list = [c for c in cols_to_list if c in df_filtered.columns]
     
-    try:
-        event = st.dataframe(
-            df_filtered[cols_to_list],
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row",
-            height=250
-        )
-        selected_indices = event.selection.rows
-    except:
-        st.warning("⚠️ Оновіть Streamlit (`pip install --upgrade streamlit`), щоб таблиця стала клікабельною.")
-        display_names = df_filtered.apply(lambda r: f"{r.get('Дата','')} | {r.get('Менеджер','')} | {r['Дзвінок']}", axis=1).tolist()
-        file_mapping = dict(zip(display_names, df_filtered['Дзвінок']))
-        selected_display = st.selectbox("Оберіть файл дзвінка:", [""] + display_names)
-        selected_indices = [df_filtered.index[df_filtered['Дзвінок'] == file_mapping[selected_display]].tolist()[0]] if selected_display else []
+    # Виводимо таблицю без try-except, щоб одразу бачити, якщо щось не так
+    event = st.dataframe(
+        df_filtered[cols_to_list],
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        height=250
+    )
+    selected_indices = event.selection.rows
 
     if selected_indices:
         if isinstance(selected_indices[0], int) and selected_indices[0] < len(df_filtered):
@@ -503,10 +497,9 @@ with tab_history:
 
         st.markdown("---")
         
-        # --- БЛОК: АУДІО ПЛЕЄР ---
+        # --- БЛОК: АУДІО ПЛЕЄР ТА НОВИЙ ЗАГОЛОВОК ---
         col_hdr1, col_hdr2 = st.columns([2, 1])
         with col_hdr1:
-            # ОНОВЛЕНИЙ ЗАГОЛОВОК КАРТКИ З ТЕЛЕФОНОМ ТА ID ДЗВІНКА
             mgr_name = row.get('Менеджер', 'Невідомо')
             client_phone = row.get('Телефон_Клієнта', 'Невідомо')
             call_id = row.get('Дзвінок', 'Невідомо')
@@ -517,6 +510,8 @@ with tab_history:
             else:
                 st.caption("Аудіозапис недоступний")
         # -------------------------------
+        
+        # (Далі йде код "Логіка_Аналізу" і т.д. — його не чіпай, залишай як є)
 
         # --- БЛОК: ЛОГІКА АНАЛІЗУ ---
         if "Логіка_Аналізу" in row and pd.notna(row['Логіка_Аналізу']):
